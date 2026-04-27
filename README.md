@@ -1,5 +1,9 @@
 # React + Vite
 
+## Documentacion PWA de CM Stock
+
+Consulta la guia completa en `docs/PWA_CMSTOCK_GUIA.md`.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
