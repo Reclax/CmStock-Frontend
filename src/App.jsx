@@ -10,11 +10,13 @@ import { InventarioPage } from "./pages/InventarioPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MuestrasPage } from "./pages/MuestrasPage";
 import { ReportesPage } from "./pages/ReportesPage";
+import { PwaPrompts } from "./components/PwaPrompts";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
@@ -29,8 +31,10 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <PwaPrompts />
+    </>
   );
 }
 

@@ -1,15 +1,25 @@
-const CACHE_NAME = "cmstock-v2";
+const CACHE_NAME = "cmstock-v3";
+
 const APP_SHELL = [
   "/",
+  "/index.html",
   "/manifest.webmanifest",
   "/logo192.png",
   "/logo512.png",
+  "/icons/icon-72.png",
+  "/icons/icon-96.png",
+  "/icons/icon-128.png",
+  "/icons/icon-144.png",
+  "/icons/icon-152.png",
+  "/icons/icon-192.png",
+  "/icons/icon-384.png",
+  "/icons/icon-512.png",
+  "/icons/icon-192-maskable.png",
+  "/icons/icon-512-maskable.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
 });
 
 self.addEventListener("activate", (event) => {
@@ -17,26 +27,24 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key)),
-        ),
-      ),
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+      )
+      .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
-  const url = new URL(event.request.url);
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
 
-  // Never handle Vite dev module requests with SW cache.
-  if (url.pathname.startsWith("/src/") || url.pathname.startsWith("/@vite")) {
-    return;
-  }
-
-  // HTML navigations should prefer network to avoid stale shells.
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
@@ -45,26 +53,26 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put("/", clone));
           return networkResponse;
         })
-        .catch(() => caches.match("/") || caches.match(event.request)),
+        .catch(() => caches.match(event.request).then((res) => res || caches.match("/"))),
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
+  if (!isSameOrigin && !requestUrl.href.startsWith("https://api.qrserver.com/")) {
+    return;
+  }
 
-      return fetch(event.request)
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchAndCache = fetch(event.request)
         .then((networkResponse) => {
-          if (event.request.url.startsWith(self.location.origin)) {
-            const clone = networkResponse.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, clone));
-          }
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return networkResponse;
         })
-        .catch(() => caches.match("/"));
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchAndCache;
     }),
   );
 });
