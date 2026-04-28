@@ -7,6 +7,7 @@ const navItems = [
   { to: "/muestras", label: "Muestras" },
   { to: "/historial", label: "Historial" },
   { to: "/inventario", label: "Inventario" },
+  { to: "/etiquetas-qr", label: "Etiquetas QR" },
   { to: "/catalogos", label: "Catalogos" },
   { to: "/reportes", label: "Reportes" },
   { to: "/herramientas", label: "Herramientas" },
