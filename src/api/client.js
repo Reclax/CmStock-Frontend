@@ -3,6 +3,8 @@ const API_BASE_URL =
 
 export { API_BASE_URL };
 
+export const API_ROOT_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+
 export class ApiError extends Error {
   constructor(message, status, details) {
     super(message);
@@ -15,10 +17,16 @@ export class ApiError extends Error {
 export const request = async (path, options = {}) => {
   const token = localStorage.getItem("cmstock_token");
 
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
   const headers = {
-    "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -56,6 +64,11 @@ export const api = {
     request(path, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  postForm: (path, formData) =>
+    request(path, {
+      method: "POST",
+      body: formData,
     }),
   put: (path, body) =>
     request(path, {

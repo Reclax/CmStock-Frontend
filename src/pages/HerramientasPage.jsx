@@ -1,8 +1,7 @@
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ENDPOINTS } from "../api/endpoints";
-import { useAuth } from "../auth/useAuth";
-import { DataGrid } from "../components/DataGrid";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { downloadTemplate, readExcelFile } from "../utils/excel";
@@ -10,9 +9,8 @@ import { generateBarcodeDataUrl, generateQrDataUrl } from "../utils/qr";
 
 export const HerramientasPage = () => {
   const catalogs = useCatalogData();
-  const { user } = useAuth();
+  const navigate = useNavigate();
   const muestras = useCrud(ENDPOINTS.muestras);
-  const fotos = useCrud(ENDPOINTS.fotos);
   const [selectedMuestra, setSelectedMuestra] = useState("");
   const [qrUrl, setQrUrl] = useState("");
   const [barcodeUrl, setBarcodeUrl] = useState("");
@@ -21,22 +19,14 @@ export const HerramientasPage = () => {
   const [scannerActive, setScannerActive] = useState(false);
   const [importRows, setImportRows] = useState([]);
   const [importMsg, setImportMsg] = useState("");
-  const [photoForm, setPhotoForm] = useState({
-    muestraid: "",
-    urlarchivo: "",
-    origen: "archivo",
-    fechacarga: "",
-  });
   const { load: loadMuestras } = muestras;
-  const { load: loadFotos } = fotos;
 
   const videoRef = useRef(null);
   const readerRef = useRef(null);
 
   useEffect(() => {
     loadMuestras();
-    loadFotos();
-  }, [loadMuestras, loadFotos]);
+  }, [loadMuestras]);
 
   useEffect(() => {
     const run = async () => {
@@ -193,21 +183,7 @@ export const HerramientasPage = () => {
     await muestras.load();
   };
 
-  const savePhoto = async (event) => {
-    event.preventDefault();
-
-    await fotos.create({
-      ...photoForm,
-      usuarioid: user.id,
-    });
-
-    setPhotoForm({
-      muestraid: "",
-      urlarchivo: "",
-      origen: "archivo",
-      fechacarga: "",
-    });
-  };
+  const openImagenes = () => navigate("/imagenes");
 
   return (
     <section>
@@ -324,87 +300,15 @@ export const HerramientasPage = () => {
         </article>
 
         <article className="panel-card">
-          <h3>Fotografias de muestras</h3>
-          <form className="form-grid" onSubmit={savePhoto}>
-            <label>
-              Muestra
-              <select
-                required
-                value={photoForm.muestraid}
-                onChange={(event) =>
-                  setPhotoForm((prev) => ({
-                    ...prev,
-                    muestraid: event.target.value,
-                  }))
-                }
-              >
-                <option value="">Selecciona</option>
-                {muestras.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.referencia}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              URL archivo
-              <input
-                required
-                value={photoForm.urlarchivo}
-                onChange={(event) =>
-                  setPhotoForm((prev) => ({
-                    ...prev,
-                    urlarchivo: event.target.value,
-                  }))
-                }
-                placeholder="https://..."
-              />
-            </label>
-            <label>
-              Origen
-              <select
-                value={photoForm.origen}
-                onChange={(event) =>
-                  setPhotoForm((prev) => ({
-                    ...prev,
-                    origen: event.target.value,
-                  }))
-                }
-              >
-                <option value="archivo">archivo</option>
-                <option value="camara">camara</option>
-                <option value="pwa">pwa</option>
-              </select>
-            </label>
-            <label>
-              Fecha carga
-              <input
-                type="date"
-                required
-                value={photoForm.fechacarga}
-                onChange={(event) =>
-                  setPhotoForm((prev) => ({
-                    ...prev,
-                    fechacarga: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <button type="submit" className="primary-btn">
-              Guardar foto
+          <h3>Gestion de imagenes</h3>
+          <p className="muted-text">
+            La carga y reorden de fotos se gestiona en una pagina dedicada.
+          </p>
+          <div className="button-row">
+            <button type="button" className="primary-btn" onClick={openImagenes}>
+              Ir a imagenes
             </button>
-          </form>
-
-          <DataGrid
-            columns={[
-              { key: "muestraid", label: "Muestra" },
-              { key: "urlarchivo", label: "URL" },
-              { key: "origen", label: "Origen" },
-              { key: "fechacarga", label: "Fecha" },
-            ]}
-            rows={fotos.items}
-            onDelete={(row) => fotos.remove(row.id)}
-          />
+          </div>
         </article>
       </div>
     </section>

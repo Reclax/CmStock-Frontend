@@ -5,6 +5,16 @@ import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
+import {
+  FiChevronsLeft,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsRight,
+  FiAlertTriangle,
+} from "react-icons/fi";
+import { buildPagination } from "../utils/pagination";
+
+const PAGE_SIZE = 20;
 
 const tabs = [
   { key: "presentaciones", label: "Presentaciones" },
@@ -23,6 +33,8 @@ export const HistorialPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
+  const [rowToDelete, setRowToDelete] = useState(null);
+  const [page, setPage] = useState(1);
   const { load: loadPresentaciones } = presentaciones;
   const { load: loadProducciones } = producciones;
   const { load: loadTrazabilidades } = trazabilidades;
@@ -37,6 +49,36 @@ export const HistorialPage = () => {
 
   const services = { presentaciones, producciones, trazabilidades };
   const service = services[tab];
+
+  useEffect(() => {
+    setPage(1);
+    setRowToDelete(null);
+  }, [tab]);
+
+  const totalPages = Math.ceil((service.items?.length || 0) / PAGE_SIZE);
+
+  useEffect(() => {
+    if (!totalPages) {
+      setPage(1);
+      return;
+    }
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return (service.items || []).slice(start, start + PAGE_SIZE);
+  }, [service.items, page]);
+
+  const totalItems = service.items?.length || 0;
+  const startIndex = totalItems ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const endIndex = Math.min(page * PAGE_SIZE, totalItems);
+
+  const { safePage, safeTotal, buttons } = buildPagination({
+    page,
+    totalPages,
+    maxButtons: 8,
+  });
 
   const openForm = (row = null) => {
     setEditing(row);
@@ -82,6 +124,12 @@ export const HistorialPage = () => {
     }
 
     closeForm();
+  };
+
+  const confirmDelete = async () => {
+    if (!rowToDelete) return;
+    await service.remove(rowToDelete.id);
+    setRowToDelete(null);
   };
 
   const disenadorIds = useMemo(() => {
@@ -192,12 +240,124 @@ export const HistorialPage = () => {
         ))}
       </div>
 
-      <DataGrid
-        columns={columnsByTab[tab]}
-        rows={service.items}
-        onEdit={openForm}
-        onDelete={(row) => service.remove(row.id)}
-      />
+      <article className="panel-card">
+        <DataGrid
+          columns={columnsByTab[tab]}
+          rows={paginatedRows}
+          onEdit={openForm}
+          onDelete={(row) => setRowToDelete(row)}
+          minWidthClass="min-w-full"
+          containerClassName="shadow-none"
+        />
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500">Page</span>
+
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage <= 1}
+              onClick={() => setPage(1)}
+              title="Primera"
+            >
+              <FiChevronsLeft />
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              title="Anterior"
+            >
+              <FiChevronLeft />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {buttons.map((item) => {
+                if (typeof item === "string") {
+                  return (
+                    <span
+                      key={item}
+                      className="px-2 text-slate-400"
+                      aria-hidden="true"
+                    >
+                      …
+                    </span>
+                  );
+                }
+
+                const isActive = item === safePage;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setPage(item)}
+                    className={
+                      isActive
+                        ? "rounded-xl bg-[#1B3D8F] px-3 py-2 text-sm font-bold text-white"
+                        : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    }
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage >= safeTotal}
+              onClick={() => setPage((p) => Math.min(safeTotal || 1, p + 1))}
+              title="Siguiente"
+            >
+              <FiChevronRight />
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage >= safeTotal}
+              onClick={() => setPage(safeTotal)}
+              title="Ultima"
+            >
+              <FiChevronsRight />
+            </button>
+          </div>
+
+          <span className="text-slate-500">
+            Results {startIndex} to {endIndex} of {totalItems}
+          </span>
+        </div>
+      </article>
+
+      {rowToDelete && (
+        <Modal title="Confirmar eliminacion" onClose={() => setRowToDelete(null)}>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
+              <FiAlertTriangle className="mt-0.5" />
+              <div>
+                <p className="m-0 font-semibold">Esta accion no se puede deshacer.</p>
+                <p className="m-0 text-sm">Se eliminara el registro seleccionado.</p>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setRowToDelete(null)}
+              >
+                Cancelar
+              </button>
+              <button type="button" className="secondary-btn" onClick={confirmDelete}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {modalOpen && (
         <Modal

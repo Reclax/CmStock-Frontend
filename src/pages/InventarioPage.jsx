@@ -6,14 +6,36 @@ import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
 import {
+  FiChevronsLeft,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsRight,
+  FiChevronDown,
   FiPlus,
-  FiTrash2,
-  FiEdit,
+  FiSearch,
+  FiAlertTriangle,
   FiArrowUp,
   FiArrowDown,
 } from "react-icons/fi";
+import { buildPagination } from "../utils/pagination";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
+
+const labelClassName =
+  "mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500";
+const controlWrapClassName =
+  "flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-all duration-200 focus-within:border-[#1B3D8F] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(27,61,143,0.10)]";
+const controlClassName =
+  "w-full border-0 bg-transparent text-sm outline-none placeholder:text-slate-400";
+const selectClassName =
+  "w-full appearance-none border-0 bg-transparent pr-8 text-sm outline-none focus:outline-none focus:ring-0";
+
+const SelectChevron = () => (
+  <FiChevronDown
+    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+    aria-hidden="true"
+  />
+);
 
 const emptyForm = {
   muestraid: "",
@@ -76,18 +98,20 @@ const useSearchAndPagination = (data) => {
   }, [data, search]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const safePage = Math.min(Math.max(page, 1), totalPages || 1);
 
   const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
+    const start = (safePage - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+  }, [filtered, safePage]);
 
   return {
     search,
     setSearch,
-    page,
+    page: safePage,
     setPage,
     totalPages,
+    filteredCount: filtered.length,
     rows: paginated,
   };
 };
@@ -106,10 +130,13 @@ export const InventarioPage = () => {
   const [rowToDelete, setRowToDelete] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
+  const { load: loadMovimientos } = movimientos;
+  const { load: loadMuestras } = muestras;
+
   useEffect(() => {
-    movimientos.load();
-    muestras.load();
-  }, []);
+    loadMovimientos();
+    loadMuestras();
+  }, [loadMovimientos, loadMuestras]);
 
   // =========================
   // DATA
@@ -167,7 +194,11 @@ export const InventarioPage = () => {
   // =========================
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      fecha: toDateInput(new Date()),
+      usuarioid: catalogs.usuarios?.[0]?.id || "",
+    });
     setModalOpen(true);
   };
 
@@ -179,6 +210,12 @@ export const InventarioPage = () => {
       fecha: toDateInput(row.fecha),
     });
     setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
   };
 
   const submit = async (e) => {
@@ -195,7 +232,7 @@ export const InventarioPage = () => {
       await movimientos.create(payload);
     }
 
-    setModalOpen(false);
+    closeModal();
   };
 
   const deleteRow = async () => {
@@ -206,69 +243,193 @@ export const InventarioPage = () => {
   // =========================
   // UI
   // =========================
-  const renderTable = (state, columns) => (
-    <>
-      <input
-        placeholder="Buscar..."
-        value={state.search}
-        onChange={(e) => {
-          state.setSearch(e.target.value);
-          state.setPage(1);
-        }}
-        className="mb-3 w-full border rounded-xl px-3 py-2"
-      />
+  const renderTable = (state, columns, gridProps = {}) => {
+    const total = state.filteredCount || 0;
+    const startIndex = total ? (state.page - 1) * PAGE_SIZE + 1 : 0;
+    const endIndex = Math.min(state.page * PAGE_SIZE, total);
 
-      <DataGrid columns={columns} rows={state.rows} />
+    const { safePage, safeTotal, buttons } = buildPagination({
+      page: state.page,
+      totalPages: state.totalPages,
+      maxButtons: 8,
+    });
 
-      <div className="flex justify-between mt-3 text-sm">
-        <button
-          disabled={state.page === 1}
-          onClick={() => state.setPage(state.page - 1)}
-        >
-          Anterior
-        </button>
+    return (
+      <article className="panel-card">
+        <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className={controlWrapClassName}>
+            <FiSearch className="text-slate-500" />
+            <input
+              placeholder="Buscar..."
+              value={state.search}
+              onChange={(e) => {
+                state.setSearch(e.target.value);
+                state.setPage(1);
+              }}
+              className={controlClassName}
+              autoComplete="off"
+            />
+          </div>
+        </div>
 
-        <span>
-          Página {state.page} de {state.totalPages || 1}
-        </span>
+        <DataGrid
+          columns={columns}
+          rows={state.rows}
+          minWidthClass="min-w-full"
+          containerClassName="shadow-none"
+          {...gridProps}
+        />
 
-        <button
-          disabled={state.page === state.totalPages}
-          onClick={() => state.setPage(state.page + 1)}
-        >
-          Siguiente
-        </button>
-      </div>
-    </>
-  );
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500">Page</span>
+
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage <= 1}
+              onClick={() => state.setPage(1)}
+              title="Primera"
+            >
+              <FiChevronsLeft />
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage <= 1}
+              onClick={() => state.setPage((p) => Math.max(1, p - 1))}
+              title="Anterior"
+            >
+              <FiChevronLeft />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {buttons.map((item) => {
+                if (typeof item === "string") {
+                  return (
+                    <span
+                      key={item}
+                      className="px-2 text-slate-400"
+                      aria-hidden="true"
+                    >
+                      …
+                    </span>
+                  );
+                }
+
+                const isActive = item === safePage;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => state.setPage(item)}
+                    className={
+                      isActive
+                        ? "rounded-xl bg-[#1B3D8F] px-3 py-2 text-sm font-bold text-white"
+                        : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    }
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage >= safeTotal}
+              onClick={() =>
+                state.setPage((p) => Math.min(safeTotal || 1, p + 1))
+              }
+              title="Siguiente"
+            >
+              <FiChevronRight />
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={safePage >= safeTotal}
+              onClick={() => state.setPage(safeTotal)}
+              title="Ultima"
+            >
+              <FiChevronsRight />
+            </button>
+          </div>
+
+          <span className="text-slate-500">
+            Results {startIndex} to {endIndex} of {total}
+          </span>
+        </div>
+      </article>
+    );
+  };
+
+  const onChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const historialColumns = [
+    {
+      key: "muestraid",
+      label: "Muestra",
+      render: (row) => muestraLabelById[row.muestraid] || row.muestraid,
+    },
+    {
+      key: "tipo",
+      label: "Tipo",
+      render: (row) => <TipoBadge tipo={row.tipo} />,
+    },
+    { key: "cantidad", label: "Cantidad" },
+    {
+      key: "fecha",
+      label: "Fecha",
+      render: (row) => toDateInput(row.fecha),
+    },
+    { key: "motivo", label: "Motivo" },
+    {
+      key: "usuarioid",
+      label: "Usuario",
+      render: (row) => catalogs.usuariosMap?.[row.usuarioid] || row.usuarioid,
+    },
+  ];
 
   return (
-    <section className="space-y-6">
-      <header className="flex justify-between">
-        <h1 className="text-xl font-semibold">
-          Inventario y bodega
-        </h1>
+    <section>
+      <header className="section-header">
+        <div>
+          <h1>Inventario y bodega</h1>
+          <p>Stock por muestra, ubicacion e historial.</p>
+        </div>
 
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-[#1B3D8F] text-white px-4 py-2 rounded-xl"
-        >
-          <FiPlus /> Nuevo
+        <button type="button" className="primary-btn" onClick={openCreate}>
+          <FiPlus /> Nuevo movimiento
         </button>
       </header>
 
-      <div className="flex gap-2">
-        {["stock", "historial", "ubicacion"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded ${
-              tab === t ? "bg-[#1B3D8F] text-white" : "bg-slate-100"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="tabs-row">
+        <button
+          type="button"
+          className={tab === "stock" ? "is-active" : ""}
+          onClick={() => setTab("stock")}
+        >
+          Stock
+        </button>
+        <button
+          type="button"
+          className={tab === "historial" ? "is-active" : ""}
+          onClick={() => setTab("historial")}
+        >
+          Historial
+        </button>
+        <button
+          type="button"
+          className={tab === "ubicacion" ? "is-active" : ""}
+          onClick={() => setTab("ubicacion")}
+        >
+          Por ubicacion
+        </button>
       </div>
 
       {tab === "stock" &&
@@ -277,10 +438,8 @@ export const InventarioPage = () => {
           { key: "modelo", label: "Modelo" },
           {
             key: "ubicacion",
-            label: "Ubicación",
-            render: (row) => (
-              <UbicacionBadge value={row.ubicacion} />
-            ),
+            label: "Ubicacion",
+            render: (row) => <UbicacionBadge value={row.ubicacion} />,
           },
           {
             key: "stock",
@@ -290,80 +449,183 @@ export const InventarioPage = () => {
         ])}
 
       {tab === "historial" &&
-        renderTable(historialState, [
-          {
-            key: "muestraid",
-            label: "Muestra",
-            render: (row) =>
-              muestraLabelById[row.muestraid],
-          },
-          {
-            key: "tipo",
-            label: "Tipo",
-            render: (row) => <TipoBadge tipo={row.tipo} />,
-          },
-          { key: "cantidad", label: "Cantidad" },
-          {
-            key: "fecha",
-            label: "Fecha",
-            render: (row) => toDateInput(row.fecha),
-          },
-          { key: "motivo", label: "Motivo" },
-          {
-            key: "acciones",
-            label: "",
-            render: (row) => (
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(row)}>
-                  <FiEdit />
-                </button>
-                <button
-                  onClick={() => setRowToDelete(row)}
-                  className="text-rose-500"
-                >
-                  <FiTrash2 />
-                </button>
-              </div>
-            ),
-          },
-        ])}
+        renderTable(historialState, historialColumns, {
+          onEdit: openEdit,
+          onDelete: (row) => setRowToDelete(row),
+        })}
 
       {tab === "ubicacion" &&
         renderTable(ubicacionState, [
           {
             key: "ubicacion",
-            label: "Ubicación",
-            render: (row) => (
-              <UbicacionBadge value={row.ubicacion} />
-            ),
+            label: "Ubicacion",
+            render: (row) => <UbicacionBadge value={row.ubicacion} />,
           },
           {
             key: "stock",
             label: "Stock",
-            render: (row) => (
-              <StockBadge value={row.stock} />
-            ),
+            render: (row) => <StockBadge value={row.stock} />,
           },
         ])}
 
-      {/* DELETE */}
-      {rowToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-xl">
-            <p>¿Eliminar registro?</p>
-            <div className="flex gap-3 mt-4 justify-end">
-              <button onClick={() => setRowToDelete(null)}>
+      {modalOpen && (
+        <Modal
+          title={editing ? "Editar movimiento" : "Nuevo movimiento"}
+          onClose={closeModal}
+        >
+          <form onSubmit={submit} className="form-grid two-columns">
+            <div className="full-width">
+              <label className={labelClassName} htmlFor="inv-muestra">
+                Muestra
+              </label>
+              <div className={`${controlWrapClassName} relative`}>
+                <select
+                  id="inv-muestra"
+                  required
+                  value={form.muestraid}
+                  onChange={(e) => onChange("muestraid", e.target.value)}
+                  className={selectClassName}
+                >
+                  <option value="">Selecciona una muestra</option>
+                  {muestras.items.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.referencia} · {m.modelo}
+                    </option>
+                  ))}
+                </select>
+                <SelectChevron />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClassName} htmlFor="inv-tipo">
+                Tipo
+              </label>
+              <div className={`${controlWrapClassName} relative`}>
+                <select
+                  id="inv-tipo"
+                  value={form.tipo}
+                  onChange={(e) => onChange("tipo", e.target.value)}
+                  className={selectClassName}
+                >
+                  <option value="entrada">Entrada</option>
+                  <option value="salida">Salida</option>
+                </select>
+                <SelectChevron />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClassName} htmlFor="inv-cantidad">
+                Cantidad
+              </label>
+              <div className={controlWrapClassName}>
+                <input
+                  id="inv-cantidad"
+                  type="number"
+                  min={1}
+                  step={1}
+                  required
+                  value={form.cantidad}
+                  onChange={(e) => onChange("cantidad", e.target.value)}
+                  className={controlClassName}
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClassName} htmlFor="inv-fecha">
+                Fecha
+              </label>
+              <div className={controlWrapClassName}>
+                <input
+                  id="inv-fecha"
+                  type="date"
+                  required
+                  value={form.fecha || ""}
+                  onChange={(e) => onChange("fecha", e.target.value)}
+                  className={controlClassName}
+                />
+              </div>
+            </div>
+
+            <div className="full-width">
+              <label className={labelClassName} htmlFor="inv-motivo">
+                Motivo (opcional)
+              </label>
+              <div className={controlWrapClassName}>
+                <textarea
+                  id="inv-motivo"
+                  rows={3}
+                  value={form.motivo || ""}
+                  onChange={(e) => onChange("motivo", e.target.value)}
+                  className={controlClassName}
+                  placeholder="Ej: Ajuste de inventario / traslado / entrega..."
+                />
+              </div>
+            </div>
+
+            <div className="full-width">
+              <label className={labelClassName} htmlFor="inv-usuario">
+                Usuario
+              </label>
+              <div className={`${controlWrapClassName} relative`}>
+                <select
+                  id="inv-usuario"
+                  required
+                  value={form.usuarioid || ""}
+                  onChange={(e) => onChange("usuarioid", e.target.value)}
+                  className={selectClassName}
+                >
+                  <option value="">Selecciona un usuario</option>
+                  {catalogs.usuarios.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre} ({u.rol})
+                    </option>
+                  ))}
+                </select>
+                <SelectChevron />
+              </div>
+            </div>
+
+            <div className="form-actions full-width">
+              <button type="button" className="ghost-btn" onClick={closeModal}>
                 Cancelar
               </button>
+              <button type="submit" className="primary-btn">
+                Guardar
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {rowToDelete && (
+        <Modal title="Confirmar eliminacion" onClose={() => setRowToDelete(null)}>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
+              <FiAlertTriangle className="mt-0.5" />
+              <div>
+                <p className="m-0 font-semibold">Esta accion no se puede deshacer.</p>
+                <p className="m-0 text-sm">Se eliminara el movimiento seleccionado.</p>
+              </div>
+            </div>
+
+            <div className="form-actions">
               <button
-                onClick={deleteRow}
-                className="bg-rose-600 text-white px-3 py-1 rounded"
+                type="button"
+                className="ghost-btn"
+                onClick={() => setRowToDelete(null)}
               >
+                Cancelar
+              </button>
+              <button type="button" className="secondary-btn" onClick={deleteRow}>
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </section>
   );
