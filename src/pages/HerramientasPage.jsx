@@ -4,6 +4,7 @@ import { ENDPOINTS } from "../api/endpoints";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { downloadTemplate, readExcelFile } from "../utils/excel";
+import { ImportacionComponent } from "../components/ImportacionComponent";
 
 export const HerramientasPage = () => {
   const catalogs = useCatalogData();
@@ -11,6 +12,7 @@ export const HerramientasPage = () => {
   const muestras = useCrud(ENDPOINTS.muestras);
   const [importRows, setImportRows] = useState([]);
   const [importMsg, setImportMsg] = useState("");
+  const [activeTab, setActiveTab] = useState("clasica");
   const { load: loadMuestras } = muestras;
 
   const videoRef = useRef(null);
@@ -106,54 +108,111 @@ export const HerramientasPage = () => {
       <header className="section-header">
         <div>
           <h1>Herramientas avanzadas</h1>
-          <p>Importacion Excel y gestion de fotografias.</p>
+          <p>Importación Excel y gestión de fotografías.</p>
         </div>
       </header>
 
-      <div className="panel-grid two-col">
-        <article className="panel-card">
-          <h3>Importacion desde Excel</h3>
-          <p className="muted-text">
-            Plantilla: ORDEN Nº, MES, REF, PARES, MARCA, MOLDERIA, SEGMENTO,
-            LICENCIA, DIMA...
-          </p>
-          <div className="button-row">
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={downloadTemplate}
-            >
-              Descargar plantilla
-            </button>
-            <input type="file" accept=".xlsx,.xls" onChange={onImportFile} />
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={executeImport}
-            >
-              Importar filas
-            </button>
-          </div>
-          {importMsg && <p className="muted-text">{importMsg}</p>}
-          {importRows.length > 0 && (
-            <p className="muted-text">
-              Vista previa cargada: {importRows.length} registros
-            </p>
-          )}
-        </article>
-
-        <article className="panel-card">
-          <h3>Gestion de imagenes</h3>
-          <p className="muted-text">
-            La carga y reorden de fotos se gestiona en una pagina dedicada.
-          </p>
-          <div className="button-row">
-            <button type="button" className="primary-btn" onClick={openImagenes}>
-              Ir a imagenes
-            </button>
-          </div>
-        </article>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab("clasica")}
+          className={`px-4 py-2 font-semibold border-b-2 transition-all ${
+            activeTab === "clasica"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Importación Clásica
+        </button>
+        <button
+          onClick={() => setActiveTab("avanzada")}
+          className={`px-4 py-2 font-semibold border-b-2 transition-all ${
+            activeTab === "avanzada"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Importación Avanzada (BASE DIS)
+        </button>
+        <button
+          onClick={() => setActiveTab("imagenes")}
+          className={`px-4 py-2 font-semibold border-b-2 transition-all ${
+            activeTab === "imagenes"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Gestión de Imágenes
+        </button>
       </div>
+
+      {/* Tab: Importación Clásica */}
+      {activeTab === "clasica" && (
+        <div className="panel-grid two-col">
+          <article className="panel-card">
+            <h3>Importación desde Excel</h3>
+            <p className="muted-text">
+              Plantilla: ORDEN Nº, MES, REF, PARES, MARCA, MOLDERIA, SEGMENTO,
+              LICENCIA, DIMA...
+            </p>
+            <div className="button-row">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={downloadTemplate}
+              >
+                Descargar plantilla
+              </button>
+              <input type="file" accept=".xlsx,.xls" onChange={onImportFile} />
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={executeImport}
+              >
+                Importar filas
+              </button>
+            </div>
+            {importMsg && <p className="muted-text">{importMsg}</p>}
+            {importRows.length > 0 && (
+              <p className="muted-text">
+                Vista previa cargada: {importRows.length} registros
+              </p>
+            )}
+          </article>
+        </div>
+      )}
+
+      {/* Tab: Importación Avanzada */}
+      {activeTab === "avanzada" && (
+        <div className="p-6">
+          <ImportacionComponent 
+            onImportComplete={() => {
+              loadMuestras();
+            }} 
+          />
+        </div>
+      )}
+
+      {/* Tab: Gestión de Imágenes */}
+      {activeTab === "imagenes" && (
+        <div className="panel-grid">
+          <article className="panel-card">
+            <h3>Gestión de imágenes</h3>
+            <p className="muted-text">
+              La carga y reorden de fotos se gestiona en una página dedicada.
+            </p>
+            <div className="button-row">
+              <button 
+                type="button" 
+                className="primary-btn" 
+                onClick={openImagenes}
+              >
+                Ir a imágenes
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
     </section>
   );
 };

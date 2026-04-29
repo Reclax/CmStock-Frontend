@@ -13,6 +13,39 @@ const toCollection = (payload) => {
   return [];
 };
 
+const PAGE_SIZE = 20;
+
+const buildPagePath = (endpoint, page) => {
+  const separator = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${separator}page=${page}&limit=${PAGE_SIZE}`;
+};
+
+const loadAllPages = async (endpoint) => {
+  const firstPayload = await api.get(buildPagePath(endpoint, 1));
+
+  if (Array.isArray(firstPayload)) {
+    return firstPayload;
+  }
+
+  const firstPageItems = toCollection(firstPayload);
+  const totalPages = Number(firstPayload?.totalPages || 1);
+
+  if (totalPages <= 1) {
+    return firstPageItems;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      api.get(buildPagePath(endpoint, index + 2)),
+    ),
+  );
+
+  return [
+    ...firstPageItems,
+    ...remainingPages.flatMap((pagePayload) => toCollection(pagePayload)),
+  ];
+};
+
 export const useCrud = (endpoint) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -22,8 +55,8 @@ export const useCrud = (endpoint) => {
     setLoading(true);
     setError("");
     try {
-      const data = await api.get(endpoint);
-      setItems(toCollection(data));
+      const data = await loadAllPages(endpoint);
+      setItems(data);
       return data;
     } catch (err) {
       setError(err.message || "Error cargando datos");

@@ -10,4 +10,5 @@ export const ENDPOINTS = {
   producciones: "/producciones",
   movimientosInventario: "/movimientos-inventario",
   presentaciones: "/presentaciones",
+  importacion: "/importacion",
 };
