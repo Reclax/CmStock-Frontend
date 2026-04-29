@@ -3,6 +3,12 @@ import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import { exportToExcel } from "../utils/excel";
 
+const toCollection = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  return [];
+};
+
 export const ReportesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,7 +31,12 @@ export const ReportesPage = () => {
           api.get(ENDPOINTS.movimientosInventario),
         ],
       );
-      setData({ muestras, clientes, producciones, movimientos });
+      setData({
+        muestras: toCollection(muestras),
+        clientes: toCollection(clientes),
+        producciones: toCollection(producciones),
+        movimientos: toCollection(movimientos),
+      });
     } catch (err) {
       setError(err.message || "No se pudieron cargar reportes");
     } finally {

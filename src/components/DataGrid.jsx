@@ -1,7 +1,19 @@
-export const DataGrid = ({ columns, rows, onEdit, onDelete }) => {
+export const DataGrid = ({
+  columns,
+  rows,
+  onEdit,
+  onDelete,
+  minWidthClass = "min-w-[760px]",
+  containerClassName = "",
+}) => {
   return (
-    <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-      <table className="min-w-[760px] w-full border-collapse">
+    <div
+      className={[
+        "overflow-auto rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(17,36,74,0.08)]",
+        containerClassName,
+      ].join(" ")}
+    >
+      <table className={`${minWidthClass} w-full border-collapse`}>
         <thead>
           <tr className="bg-slate-50">
             {columns.map((column) => (

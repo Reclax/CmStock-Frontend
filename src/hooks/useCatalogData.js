@@ -2,6 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 
+const toCollection = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  return [];
+};
+
 export const useCatalogData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,10 +34,10 @@ export const useCatalogData = () => {
           api.get(ENDPOINTS.usuarios),
         ]);
 
-      setClientes(Array.isArray(clientesData) ? clientesData : []);
-      setMolderias(Array.isArray(molderiasData) ? molderiasData : []);
-      setUbicaciones(Array.isArray(ubicacionesData) ? ubicacionesData : []);
-      setUsuarios(Array.isArray(usuariosData) ? usuariosData : []);
+      setClientes(toCollection(clientesData));
+      setMolderias(toCollection(molderiasData));
+      setUbicaciones(toCollection(ubicacionesData));
+      setUsuarios(toCollection(usuariosData));
     } catch (err) {
       setError(err.message || "No se pudieron cargar catalogos");
     } finally {

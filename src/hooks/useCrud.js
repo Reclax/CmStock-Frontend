@@ -1,6 +1,18 @@
 import { useCallback, useState } from "react";
 import { api } from "../api/client";
 
+const toCollection = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  return [];
+};
+
 export const useCrud = (endpoint) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,7 +23,7 @@ export const useCrud = (endpoint) => {
     setError("");
     try {
       const data = await api.get(endpoint);
-      setItems(Array.isArray(data) ? data : []);
+      setItems(toCollection(data));
       return data;
     } catch (err) {
       setError(err.message || "Error cargando datos");
