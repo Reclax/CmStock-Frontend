@@ -311,8 +311,138 @@
     @apply rounded-[18px] border border-dashed border-slate-300 bg-gradient-to-b from-white to-[#f8fbff];
   }
 
+  .qr-page {
+    @apply space-y-6;
+  }
+
+  .qr-hero {
+    @apply overflow-hidden rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#0f2348_0%,#1b3d8f_50%,#4b79ff_100%)] p-6 text-white shadow-[0_20px_50px_rgba(17,36,74,0.16)] sm:p-8;
+  }
+
+  .qr-hero-copy {
+    @apply max-w-3xl;
+  }
+
+  .qr-hero h1 {
+    @apply mt-2 text-[clamp(2.1rem,4vw,3.6rem)] font-black leading-[0.96] tracking-[-0.05em];
+  }
+
+  .qr-hero p {
+    @apply mt-4 max-w-2xl text-white/78;
+  }
+
+  .qr-eyebrow {
+    @apply m-0 text-xs font-bold uppercase tracking-[0.24em] text-white/72;
+  }
+
+  .qr-hero-chips {
+    @apply mt-6 flex flex-wrap gap-2;
+  }
+
+  .qr-hero-chips span {
+    @apply rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur;
+  }
+
+  .qr-layout {
+    @apply grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)];
+  }
+
+  .qr-sidebar {
+    @apply flex flex-col gap-6;
+  }
+
+  .qr-generator-card,
+  .qr-info-card {
+    @apply rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(17,36,74,0.08)] sm:p-6;
+  }
+
+  .qr-card-heading,
+  .qr-info-card-head {
+    @apply flex flex-col gap-2 border-b border-slate-200 pb-4;
+  }
+
+  .qr-card-heading h2 {
+    @apply mt-1 text-2xl font-black tracking-[-0.04em] text-slate-900 sm:text-[2.2rem];
+  }
+
+  .qr-card-subtitle {
+    @apply max-w-2xl text-slate-500;
+  }
+
+  .qr-selector {
+    @apply mt-5;
+  }
+
+  .qr-selector label {
+    @apply block text-sm font-semibold text-slate-700;
+  }
+
+  .qr-selector select {
+    @apply mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)];
+  }
+
   .qr-preview {
-    @apply grid min-h-[260px] place-items-center;
+    @apply mt-5 grid min-h-[320px] place-items-center gap-4 rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top,rgba(27,61,143,0.06),transparent_40%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 text-center sm:p-6;
+  }
+
+  .qr-preview-copy {
+    @apply flex flex-col items-center gap-1;
+  }
+
+  .qr-preview-title {
+    @apply m-0 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500;
+  }
+
+  .qr-preview strong {
+    @apply text-xl font-extrabold tracking-[-0.03em] text-slate-900 sm:text-2xl;
+  }
+
+  .qr-print-card {
+    @apply bg-white;
+  }
+
+  .qr-print-card.is-printing {
+    @apply border-slate-400 shadow-[0_12px_30px_rgba(17,36,74,0.08)];
+  }
+
+  .qr-print-btn {
+    @apply mt-2 w-full sm:w-auto;
+  }
+
+  .qr-code-frame {
+    @apply grid place-items-center rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(17,36,74,0.08)];
+  }
+
+  .qr-empty-state {
+    @apply grid min-h-[220px] place-items-center rounded-[26px] border border-dashed border-slate-300 bg-white/70 px-6 text-slate-500;
+  }
+
+  .qr-meta-grid {
+    @apply mt-5 grid gap-3 sm:grid-cols-2;
+  }
+
+  .qr-meta-item {
+    @apply rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3;
+  }
+
+  .qr-meta-item dt {
+    @apply text-xs font-bold uppercase tracking-[0.14em] text-slate-500;
+  }
+
+  .qr-meta-item dd {
+    @apply mt-1 m-0 font-semibold text-slate-900;
+  }
+
+  .qr-scanner-card {
+    @apply mt-6 xl:mt-0;
+  }
+
+  .qr-actions-row {
+    @apply mt-4;
+  }
+
+  .qr-payload-preview {
+    @apply mt-4 overflow-auto rounded-2xl border border-slate-200 bg-slate-950 px-4 py-3 text-xs leading-relaxed text-slate-100;
   }
 
   .printable-label {
@@ -321,5 +451,59 @@
 
   .button-row {
     @apply flex flex-wrap gap-2.5;
+  }
+
+  @media (max-width: 767px) {
+    .qr-hero {
+      @apply p-5;
+    }
+
+    .qr-hero-chips span {
+      @apply text-[11px];
+    }
+
+    .qr-preview {
+      @apply min-h-[300px] p-4;
+    }
+
+    .qr-code-frame {
+      @apply p-3;
+    }
+
+    .qr-generator-card,
+    .qr-info-card {
+      @apply p-4;
+    }
+  }
+
+  @media print {
+    body {
+      background: #fff !important;
+    }
+
+    body * {
+      visibility: hidden;
+    }
+
+    .qr-print-card,
+    .qr-print-card * {
+      visibility: visible;
+    }
+
+    .qr-print-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      box-shadow: none !important;
+    }
+
+    .qr-print-btn,
+    .scanner-video,
+    .button-row,
+    .section-header button {
+      display: none !important;
+    }
   }
 }
