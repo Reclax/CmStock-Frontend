@@ -1,11 +1,10 @@
-const CACHE_NAME = "cmstock-v3";
+const CACHE_NAME = "cmstock-v5";
 
 const APP_SHELL = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
-  "/logo192.png",
-  "/logo512.png",
+  "/image.png",
   "/icons/icon-72.png",
   "/icons/icon-96.png",
   "/icons/icon-128.png",
@@ -15,7 +14,7 @@ const APP_SHELL = [
   "/icons/icon-384.png",
   "/icons/icon-512.png",
   "/icons/icon-192-maskable.png",
-  "/icons/icon-512-maskable.png",
+  "/icons/icon-512-maskable.png"
 ];
 
 self.addEventListener("install", (event) => {

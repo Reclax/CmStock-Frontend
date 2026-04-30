@@ -5,11 +5,18 @@ const emitPwaEvent = (name, detail = {}) => {
   window.dispatchEvent(new CustomEvent(name, { detail }));
 };
 
+// En modo DEV sobre localhost se limpia el SW para no interferir con el desarrollo.
+// Pero si se accede desde un host externo (ngrok, devtunnel, etc.) se registra
+// el SW para que el prompt de instalación funcione correctamente.
+const isLocalhost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
 export const initPwa = () => {
   if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", async () => {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && isLocalhost) {
       // Keep dev clean from stale SW/cache when iterating quickly.
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(
