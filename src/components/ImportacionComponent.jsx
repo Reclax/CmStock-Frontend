@@ -83,7 +83,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
           {/* BASE DIS File */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              📊 Archivo BASE DIS 2025 (2).xlsx
+              📊 Archivo BASE DIS.xlsx
             </label>
             <div className="relative">
               <input

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api/client";
+import { api, API_ROOT_URL } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import { DataGrid } from "../components/DataGrid";
 import { Modal } from "../components/Modal";
@@ -9,6 +9,7 @@ import { toDateInput, toNumber } from "../utils/format";
 import {
   FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight,
   FiAlertTriangle, FiSearch, FiPlus, FiFilter, FiX, FiEye, FiUserX,
+  FiCamera, FiUploadCloud, FiTrash2,
 } from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
 
@@ -91,6 +92,20 @@ export const MuestrasPage = () => {
   const [page, setPage] = useState(1);
   const debounceRef = useRef(null);
 
+  // ── Fotos / Cámara en modal edición ──
+  const [editPhotos, setEditPhotos] = useState([]);
+  const [loadingEditPhotos, setLoadingEditPhotos] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const photoFileRef = useRef(null);
+
+  // ── Fotos en modal detalle ──
+  const [viewPhotos, setViewPhotos] = useState([]);
+  const [loadingViewPhotos, setLoadingViewPhotos] = useState(false);
+
   const fetchRows = useCallback(async (activeFilters, activePage) => {
     setLoadingRows(true);
     setFetchError("");
@@ -145,13 +160,128 @@ export const MuestrasPage = () => {
     licenciado: "", dima: "", molderiaid: "", from: "", to: "",
   });
 
-  const resetAndClose = () => { setModalOpen(false); setEditing(null); setForm(emptyForm); };
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((t) => t.stop());
+      setCameraStream(null);
+    }
+    setCameraOpen(false);
+  };
+
+  const resetAndClose = () => {
+    stopCamera();
+    setModalOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
+    setEditPhotos([]);
+  };
+
   const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
+
+  const loadEditPhotos = async (muestraId) => {
+    setLoadingEditPhotos(true);
+    try {
+      const data = await api.get(`${ENDPOINTS.fotos}?muestraid=${muestraId}`);
+      setEditPhotos(Array.isArray(data) ? data : []);
+    } catch {
+      setEditPhotos([]);
+    } finally {
+      setLoadingEditPhotos(false);
+    }
+  };
+
   const openEdit = (row) => {
     setEditing(row);
     setForm({ ...row, fechaelaboracion: toDateInput(row.fechaelaboracion) });
     setModalOpen(true);
+    setEditPhotos([]);
+    loadEditPhotos(row.id);
   };
+
+  const handlePhotoFileUpload = async (file) => {
+    if (!editing || !file) return;
+
+    // ── Control de duplicados: comparar nombre de archivo con los ya subidos ──
+    const isDuplicate = editPhotos.some((p) => {
+      const existingName = p.urlarchivo?.split("/").pop() ?? "";
+      // Los archivos subidos tienen formato "foto-TIMESTAMP-RANDOM.ext"
+      // Para cámara comparamos el nombre original; para archivo comparamos solo la extensión no aplica
+      // La estrategia más simple: comparar tamaño + nombre del nuevo archivo contra el original almacenado
+      return existingName.endsWith(file.name.split("/").pop());
+    });
+    if (isDuplicate) {
+      alert(`La imagen "${file.name}" ya fue subida para esta muestra.`);
+      if (photoFileRef.current) photoFileRef.current.value = "";
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("muestraid", editing.id);
+      fd.append("origen", "archivo");
+      fd.append("fechacarga", new Date().toISOString().slice(0, 10));
+      await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
+      await loadEditPhotos(editing.id);
+    } catch (err) {
+      console.error("Error subiendo foto:", err);
+    } finally {
+      setUploadingPhoto(false);
+      if (photoFileRef.current) photoFileRef.current.value = "";
+    }
+  };
+
+  const deletePhoto = async (photoId) => {
+    try {
+      await api.delete(`${ENDPOINTS.fotos}/${photoId}`);
+      setEditPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    } catch (err) {
+      console.error("Error eliminando foto:", err);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }, audio: false,
+      });
+      setCameraStream(stream);
+      setCameraOpen(true);
+      setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream; }, 80);
+    } catch {
+      alert("No se pudo acceder a la cámara. Verifica los permisos del navegador.");
+    }
+  };
+
+  const captureAndUpload = async () => {
+    if (!videoRef.current || !canvasRef.current || !editing) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    stopCamera();
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `camara-${editing.referencia}-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setUploadingPhoto(true);
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("muestraid", editing.id);
+        fd.append("origen", "camara");
+        fd.append("fechacarga", new Date().toISOString().slice(0, 10));
+        await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
+        await loadEditPhotos(editing.id);
+      } catch (err) {
+        console.error("Error guardando foto:", err);
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }, "image/jpeg", 0.92);
+  };
+
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -175,14 +305,22 @@ export const MuestrasPage = () => {
   const openView = async (row) => {
     setViewRow(row);
     setPresentaciones([]);
+    setViewPhotos([]);
     setLoadingPres(true);
+    setLoadingViewPhotos(true);
     try {
-      const data = await api.get(`${ENDPOINTS.muestras}/${row.id}/presentaciones`);
-      setPresentaciones(Array.isArray(data) ? data : []);
+      const [presData, fotosData] = await Promise.all([
+        api.get(`${ENDPOINTS.muestras}/${row.id}/presentaciones`),
+        api.get(`${ENDPOINTS.fotos}?muestraid=${row.id}`),
+      ]);
+      setPresentaciones(Array.isArray(presData) ? presData : []);
+      setViewPhotos(Array.isArray(fotosData) ? fotosData : []);
     } catch {
       setPresentaciones([]);
+      setViewPhotos([]);
     } finally {
       setLoadingPres(false);
+      setLoadingViewPhotos(false);
     }
   };
 
@@ -485,12 +623,147 @@ export const MuestrasPage = () => {
             <FieldWrap label="Observaciones" full>
               <textarea className={inputCls} rows="3" value={form.observaciones || ""} onChange={(e) => onChange("observaciones", e.target.value)} placeholder="Notas adicionales..." />
             </FieldWrap>
+
+            {/* ── FOTOS — solo visible al editar ── */}
+            {editing && (
+              <div className="col-span-full space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                {/* Cabecera */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                    Fotos de la muestra
+                    {editPhotos.length > 0 && (
+                      <span className="ml-2 rounded-full bg-[#1B3D8F] px-2 py-0.5 text-[10px] font-black text-white">
+                        {editPhotos.length}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    {/* Input oculto para subir archivo */}
+                    <input
+                      ref={photoFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      id="edit-photo-file"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoFileUpload(f); }}
+                    />
+                    <label
+                      htmlFor="edit-photo-file"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-3 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
+                    >
+                      <FiUploadCloud className="h-3.5 w-3.5" />
+                      Subir imagen
+                    </label>
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      disabled={cameraOpen}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+                    >
+                      <FiCamera className="h-3.5 w-3.5" />
+                      Tomar foto
+                    </button>
+                  </div>
+                </div>
+
+                {/* Vista de cámara en vivo */}
+                {cameraOpen && (
+                  <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-black shadow-sm">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full max-h-56 object-cover"
+                    />
+                    <canvas ref={canvasRef} className="sr-only" />
+                    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-3">
+                      <button
+                        type="button"
+                        onClick={captureAndUpload}
+                        disabled={uploadingPhoto}
+                        title="Capturar foto"
+                        className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg ring-4 ring-white/30 transition hover:scale-110 active:scale-95 disabled:opacity-60"
+                      >
+                        <FiCamera className="h-6 w-6 text-[#1B3D8F]" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        title="Cerrar cámara"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-600 text-white shadow-lg transition hover:bg-rose-700"
+                      >
+                        <FiX className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Indicador de subida */}
+                {uploadingPhoto && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+                    Guardando foto...
+                  </div>
+                )}
+
+                {/* Galería de fotos */}
+                {loadingEditPhotos ? (
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+                    Cargando fotos...
+                  </div>
+                ) : editPhotos.length === 0 ? (
+                  <div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-slate-200 bg-white py-6 text-center">
+                    <FiCamera className="h-6 w-6 text-slate-300" />
+                    <p className="text-xs font-medium text-slate-400">Sin fotos aún</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {editPhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                      >
+                        <img
+                          src={`${API_ROOT_URL}${photo.urlarchivo}`}
+                          alt="Foto muestra"
+                          className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        {/* Ver a pantalla completa */}
+                        <a
+                          href={`${API_ROOT_URL}${photo.urlarchivo}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="absolute inset-0 flex items-end justify-start p-1.5 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition group-hover:opacity-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[10px] font-semibold text-white">Ver</span>
+                        </a>
+                        {/* Eliminar */}
+                        <button
+                          type="button"
+                          onClick={() => deletePhoto(photo.id)}
+                          title="Eliminar foto"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white opacity-0 shadow transition hover:bg-rose-700 group-hover:opacity-100"
+                        >
+                          <FiTrash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="col-span-full flex justify-end gap-3 border-t border-slate-100 pt-4">
               <button type="button" className="ghost-btn" onClick={resetAndClose}>Cancelar</button>
               <button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#163272] active:scale-[0.98]">
                 {editing ? "Guardar cambios" : "Crear muestra"}
               </button>
             </div>
+
           </form>
         </Modal>
       )}
@@ -611,6 +884,49 @@ export const MuestrasPage = () => {
                 </div>
               );
             })()}
+            {/* ── Fotos ── */}
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Fotos</h3>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1B3D8F] text-[10px] font-black text-white">
+                  {viewPhotos.length}
+                </span>
+              </div>
+              {loadingViewPhotos ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+                  Cargando fotos...
+                </div>
+              ) : viewPhotos.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
+                  <FiCamera className="h-6 w-6 text-slate-300" />
+                  <p className="text-xs font-medium text-slate-400">Sin fotos registradas para esta muestra.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {viewPhotos.map((photo) => (
+                    <a
+                      key={photo.id}
+                      href={`${API_ROOT_URL}${photo.urlarchivo}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                    >
+                      <img
+                        src={`${API_ROOT_URL}${photo.urlarchivo}`}
+                        alt="Foto muestra"
+                        className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 flex items-end justify-start bg-gradient-to-t from-black/40 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
+                        <span className="text-[10px] font-semibold text-white">Ver</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         </Modal>
       )}
