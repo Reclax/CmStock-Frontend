@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { api, API_ROOT_URL } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import { DataGrid } from "../components/DataGrid";
@@ -106,6 +107,14 @@ export const MuestrasPage = () => {
   // ── Fotos en modal detalle ──
   const [viewPhotos, setViewPhotos] = useState([]);
   const [loadingViewPhotos, setLoadingViewPhotos] = useState(false);
+
+  // ── Modal de Moldería ──
+  const [molderiaPromptOpen, setMolderiaPromptOpen] = useState(false);
+  const [newMolderiaName, setNewMolderiaName] = useState("");
+  const [creatingMolderia, setCreatingMolderia] = useState(false);
+
+  // ── Estado de Guardado ──
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchRows = useCallback(async (activeFilters, activePage) => {
     setLoadingRows(true);
@@ -219,7 +228,7 @@ export const MuestrasPage = () => {
       // Modo creación: guardar en memoria
       const isDuplicate = pendingPhotos.some((p) => p.name === file.name && p.size === file.size);
       if (isDuplicate) {
-        alert(`La imagen "${file.name}" ya fue agregada.`);
+        toast.error(`La imagen "${file.name}" ya fue agregada.`);
         if (photoFileRef.current) photoFileRef.current.value = "";
         return;
       }
@@ -234,7 +243,7 @@ export const MuestrasPage = () => {
       return existingName.endsWith(file.name.split("/").pop());
     });
     if (isDuplicate) {
-      alert(`La imagen "${file.name}" ya fue subida para esta muestra.`);
+      toast.error(`La imagen "${file.name}" ya fue subida.`);
       if (photoFileRef.current) photoFileRef.current.value = "";
       return;
     }
@@ -248,8 +257,10 @@ export const MuestrasPage = () => {
       fd.append("fechacarga", new Date().toISOString().slice(0, 10));
       await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
       await loadEditPhotos(editing.id);
+      toast.success("Foto subida correctamente");
     } catch (err) {
       console.error("Error subiendo foto:", err);
+      toast.error("Error al subir foto");
     } finally {
       setUploadingPhoto(false);
       if (photoFileRef.current) photoFileRef.current.value = "";
@@ -260,8 +271,10 @@ export const MuestrasPage = () => {
     try {
       await api.delete(`${ENDPOINTS.fotos}/${photoId}`);
       setEditPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      toast.success("Foto eliminada");
     } catch (err) {
       console.error("Error eliminando foto:", err);
+      toast.error("Error al eliminar foto");
     }
   };
 
@@ -274,7 +287,7 @@ export const MuestrasPage = () => {
       setCameraOpen(true);
       setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream; }, 80);
     } catch {
-      alert("No se pudo acceder a la cámara. Verifica los permisos del navegador.");
+      toast.error("No se pudo acceder a la cámara. Verifica los permisos del navegador.");
     }
   };
 
@@ -301,6 +314,8 @@ export const MuestrasPage = () => {
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       const payload = { 
         ...form,
@@ -311,37 +326,49 @@ export const MuestrasPage = () => {
 
       if (editing) {
         await muestras.update(editing.id, payload);
+        toast.success("Muestra actualizada correctamente");
       } else {
         const newMuestra = await muestras.create(payload);
+        toast.success("Muestra creada correctamente");
         
         // Subir fotos pendientes si hay
         if (pendingPhotos.length > 0 && newMuestra?.id) {
-          for (const file of pendingPhotos) {
-            try {
+          const uploadPromise = async () => {
+            for (const file of pendingPhotos) {
               const fd = new FormData();
               fd.append("file", file);
               fd.append("muestraid", newMuestra.id);
               fd.append("origen", "archivo");
               fd.append("fechacarga", new Date().toISOString().slice(0, 10));
               await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
-            } catch (err) {
-              console.error("Error subiendo foto post-creación:", err);
             }
-          }
+          };
+          toast.promise(uploadPromise(), {
+            loading: 'Subiendo fotos adjuntas...',
+            success: 'Fotos guardadas correctamente',
+            error: 'Ocurrió un error al subir algunas fotos',
+          });
         }
       }
       resetAndClose();
       fetchRows(filters, page);
     } catch (err) {
-      alert(err.message || "Error al guardar");
+      toast.error(err.message || "Error al guardar la muestra");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const confirmDelete = async () => {
     if (!rowToDelete) return;
-    await muestras.remove(rowToDelete.id);
-    setRowToDelete(null);
-    fetchRows(filters, page);
+    try {
+      await muestras.remove(rowToDelete.id);
+      setRowToDelete(null);
+      fetchRows(filters, page);
+      toast.success("Muestra eliminada correctamente");
+    } catch (err) {
+      toast.error(err.message || "Error al eliminar");
+    }
   };
   const openView = async (row) => {
     setViewRow(row);
@@ -640,17 +667,10 @@ export const MuestrasPage = () => {
               </select>
             </FieldWrap>
             <FieldWrap label="Moldería">
-              <select className={inputCls} required value={form.molderiaid || ""} onChange={async (e) => {
+              <select className={inputCls} required value={form.molderiaid || ""} onChange={(e) => {
                 if (e.target.value === "NEW") {
-                  const nombre = window.prompt("Nombre de la nueva moldería:");
-                  if (!nombre) return;
-                  try {
-                    const created = await api.post(ENDPOINTS.molderias, { nombre, tipohorma: "Pendiente", talon: "Pendiente", punta: "Pendiente", esnueva: true });
-                    await catalogs.load();
-                    onChange("molderiaid", created.id);
-                  } catch (err) {
-                    alert(err.message || "Error creando moldería");
-                  }
+                  setNewMolderiaName("");
+                  setMolderiaPromptOpen(true);
                   return;
                 }
                 onChange("molderiaid", e.target.value);
@@ -772,12 +792,64 @@ export const MuestrasPage = () => {
             </div>
 
             <div className="col-span-full flex justify-end gap-3 border-t border-slate-100 pt-4">
-              <button type="button" className="ghost-btn" onClick={resetAndClose}>Cancelar</button>
-              <button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#163272] active:scale-[0.98]">
-                {editing ? "Guardar cambios" : "Crear muestra"}
+              <button type="button" className="ghost-btn" onClick={resetAndClose} disabled={isSaving}>Cancelar</button>
+              <button type="submit" disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#163272] active:scale-[0.98] disabled:opacity-50">
+                {isSaving ? "Guardando..." : (editing ? "Guardar cambios" : "Crear muestra")}
               </button>
             </div>
 
+          </form>
+        </Modal>
+      )}
+
+      {/* ── MODAL NUEVA MOLDERÍA ── */}
+      {molderiaPromptOpen && (
+        <Modal title="Crear nueva moldería" onClose={() => setMolderiaPromptOpen(false)}>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newMolderiaName.trim()) return;
+            setCreatingMolderia(true);
+            try {
+              const created = await api.post(ENDPOINTS.molderias, { 
+                nombre: newMolderiaName.trim().toUpperCase(), 
+                tipohorma: "Pendiente", 
+                talon: "Pendiente", 
+                punta: "Pendiente", 
+                esnueva: true 
+              });
+              await catalogs.load();
+              onChange("molderiaid", created.id);
+              toast.success("Moldería creada exitosamente");
+              setMolderiaPromptOpen(false);
+            } catch (err) {
+              toast.error(err.message || "Error creando moldería");
+            } finally {
+              setCreatingMolderia(false);
+            }
+          }}>
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">
+                Ingresa el nombre para la nueva moldería. Se guardará en mayúsculas automáticamente.
+              </p>
+              <input
+                type="text"
+                required
+                autoFocus
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 uppercase focus:border-[#1B3D8F] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#1B3D8F]/10"
+                placeholder="Ej. SUECA 123"
+                value={newMolderiaName}
+                onChange={(e) => setNewMolderiaName(e.target.value)}
+                disabled={creatingMolderia}
+              />
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" className="ghost-btn" onClick={() => setMolderiaPromptOpen(false)} disabled={creatingMolderia}>
+                  Cancelar
+                </button>
+                <button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#163272] disabled:opacity-50" disabled={creatingMolderia}>
+                  {creatingMolderia ? "Creando..." : "Guardar moldería"}
+                </button>
+              </div>
+            </div>
           </form>
         </Modal>
       )}
