@@ -347,7 +347,14 @@ export const MuestrasPage = () => {
       key: "ubicacionid", label: "Ubicación",
       render: (row) => safe(catalogs.ubicacionesMap?.[row.ubicacionid] ?? row.ubicacionid),
     },
-    { key: "pareselaborados", label: "Pares" },
+    {
+      key: "disenadorid", label: "Diseñador",
+      render: (row) => {
+        if (typeof row.disenador === "object" && row.disenador?.nombre) return row.disenador.nombre;
+        if (typeof row.disenador === "string" && row.disenador.trim() !== "") return row.disenador;
+        return safe(catalogs.disenadoresMap?.[row.disenadorid] ?? row.disenadorid);
+      }
+    },
     {
       key: "_ver", label: "",
       render: (row) => (
@@ -602,11 +609,13 @@ export const MuestrasPage = () => {
                 {catalogs.ubicaciones.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
               </select>
             </FieldWrap>
-            <FieldWrap label="Diseñador ID">
-              <input className={inputCls} list="designer-list" required value={form.disenadorid || ""} onChange={(e) => onChange("disenadorid", e.target.value)} placeholder="UUID del diseñador" />
-              <datalist id="designer-list">
-                {designerOptions.map((i) => <option key={i} value={i} />)}
-              </datalist>
+            <FieldWrap label="Diseñador">
+              <select className={inputCls} required value={form.disenadorid || ""} onChange={(e) => onChange("disenadorid", e.target.value)}>
+                <option value="">Selecciona diseñador</option>
+                {catalogs.disenadores.map((d) => (
+                  <option key={d.id} value={d.id}>{d.nombre}</option>
+                ))}
+              </select>
             </FieldWrap>
             <FieldWrap label="Proceso">
               <input className={inputCls} value={form.proceso || ""} onChange={(e) => onChange("proceso", e.target.value)} placeholder="Proceso productivo" />
@@ -782,6 +791,14 @@ export const MuestrasPage = () => {
                 { label: "Fecha elaboración", value: viewRow.fechaelaboracion?.slice(0, 10) },
                 { label: "Cliente", value: safe(catalogs.clientesMap?.[viewRow.clienteid] ?? viewRow.clienteid) },
                 { label: "Ubicación", value: safe(catalogs.ubicacionesMap?.[viewRow.ubicacionid] ?? viewRow.ubicacionid) },
+                { 
+                  label: "Diseñador", 
+                  value: typeof viewRow.disenador === "object" && viewRow.disenador?.nombre 
+                    ? viewRow.disenador.nombre 
+                    : typeof viewRow.disenador === "string" && viewRow.disenador.trim() !== ""
+                      ? viewRow.disenador
+                      : safe(catalogs.disenadoresMap?.[viewRow.disenadorid] ?? viewRow.disenadorid) 
+                },
                 { label: "Licenciado", value: viewRow.licenciado ? "Sí" : "No" },
               ].map(({ label, value }) => (
                 <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3">

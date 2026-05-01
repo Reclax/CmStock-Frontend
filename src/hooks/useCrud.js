@@ -40,10 +40,23 @@ const loadAllPages = async (endpoint) => {
     ),
   );
 
-  return [
+  const allItems = [
     ...firstPageItems,
     ...remainingPages.flatMap((pagePayload) => toCollection(pagePayload)),
   ];
+
+  // Deduplicar por id para proteger contra inestabilidades de paginación
+  const uniqueItems = [];
+  const seenIds = new Set();
+  
+  for (const item of allItems) {
+    if (!item.id || !seenIds.has(item.id)) {
+      if (item.id) seenIds.add(item.id);
+      uniqueItems.push(item);
+    }
+  }
+
+  return uniqueItems;
 };
 
 export const useCrud = (endpoint) => {

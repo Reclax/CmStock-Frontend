@@ -37,7 +37,7 @@ const buildSamplePayload = (sample, catalogs) => ({
   },
   disenador: {
     id: sample.disenadorid || "",
-    nombre: catalogs.usuariosMap[sample.disenadorid] || "",
+    nombre: catalogs.disenadoresMap[sample.disenadorid] || "",
   },
 });
 
@@ -145,7 +145,7 @@ const QrCard = ({
 export const EtiquetasQrPage = () => {
   const muestras = useCrud(ENDPOINTS.muestras);
   const catalogs = useCatalogData();
-  const { clientesMap, molderiasMap, ubicacionesMap, usuariosMap } = catalogs;
+  const { clientesMap, molderiasMap, ubicacionesMap, usuariosMap, disenadoresMap } = catalogs;
   const [activeTab, setActiveTab] = useState("generar");
   const [selectedMuestra, setSelectedMuestra] = useState("");
   const [muestraQrUrl, setMuestraQrUrl] = useState("");
@@ -188,7 +188,7 @@ export const EtiquetasQrPage = () => {
         clientesMap,
         molderiasMap,
         ubicacionesMap,
-        usuariosMap,
+        disenadoresMap,
       });
       setMuestraQrUrl(
         await generateQrDataUrl(`${QR_PREFIX}${JSON.stringify(payload)}`),
@@ -201,7 +201,7 @@ export const EtiquetasQrPage = () => {
     clientesMap,
     molderiasMap,
     ubicacionesMap,
-    usuariosMap,
+    disenadoresMap,
   ]);
 
   useEffect(() => {
@@ -413,7 +413,7 @@ export const EtiquetasQrPage = () => {
                     ],
                     [
                       "Diseñador",
-                      usuariosMap[selectedMuestraData.disenadorid] || "",
+                      disenadoresMap[selectedMuestraData.disenadorid] || "",
                     ],
                     ["Segmento", selectedMuestraData.segmento || ""],
                     ["Estado", selectedMuestraData.estado || ""],
