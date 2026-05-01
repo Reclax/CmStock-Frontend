@@ -16,7 +16,7 @@ import { buildPagination } from "../utils/pagination";
 const PAGE_SIZE = 20;
 
 const emptyForm = {
-  referencia: "", molderia: "", segmento: "", pareselaborados: 0,
+  referencia: "", segmento: "", pareselaborados: 0,
   fechaelaboracion: "", estado: "nueva", ubicacionid: "", molderiaid: "",
   clienteid: "", disenadorid: "", dima: "", licenciado: false,
   talla: "", proceso: "", observaciones: "",
@@ -79,7 +79,7 @@ export const MuestrasPage = () => {
   const [fetchError, setFetchError] = useState("");
   const [filters, setFilters] = useState({
     q: "", estado: "", segmento: "", clienteid: "", ubicacionid: "",
-    licenciado: "", dima: "", molderiaid: "", from: "", to: "",
+    licenciado: "", dima: "", molderiaid: "", disenadorid: "", from: "", to: "",
   });
   const [showFilters, setShowFilters] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -94,6 +94,7 @@ export const MuestrasPage = () => {
 
   // ── Fotos / Cámara en modal edición ──
   const [editPhotos, setEditPhotos] = useState([]);
+  const [pendingPhotos, setPendingPhotos] = useState([]);
   const [loadingEditPhotos, setLoadingEditPhotos] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -120,6 +121,7 @@ export const MuestrasPage = () => {
       if (activeFilters.clienteid) params.set("clienteid", activeFilters.clienteid);
       if (activeFilters.ubicacionid) params.set("ubicacionid", activeFilters.ubicacionid);
       if (activeFilters.molderiaid) params.set("molderiaid", activeFilters.molderiaid);
+      if (activeFilters.disenadorid) params.set("disenadorid", activeFilters.disenadorid);
       if (activeFilters.licenciado !== "") params.set("licenciado", activeFilters.licenciado);
       if (activeFilters.dima) params.set("dima", activeFilters.dima);
       if (activeFilters.from) params.set("fechadesde", activeFilters.from);
@@ -157,7 +159,7 @@ export const MuestrasPage = () => {
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const clearFilters = () => setFilters({
     q: "", estado: "", segmento: "", clienteid: "", ubicacionid: "",
-    licenciado: "", dima: "", molderiaid: "", from: "", to: "",
+    licenciado: "", dima: "", molderiaid: "", disenadorid: "", from: "", to: "",
   });
 
   const stopCamera = () => {
@@ -174,9 +176,16 @@ export const MuestrasPage = () => {
     setEditing(null);
     setForm(emptyForm);
     setEditPhotos([]);
+    setPendingPhotos([]);
   };
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
+  const openCreate = () => { 
+    setEditing(null); 
+    setForm(emptyForm); 
+    setEditPhotos([]); 
+    setPendingPhotos([]); 
+    setModalOpen(true); 
+  };
 
   const loadEditPhotos = async (muestraId) => {
     setLoadingEditPhotos(true);
@@ -192,21 +201,36 @@ export const MuestrasPage = () => {
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ ...row, fechaelaboracion: toDateInput(row.fechaelaboracion) });
+    setForm({ 
+      ...row, 
+      estado: row.estado?.toLowerCase() || "nueva",
+      fechaelaboracion: toDateInput(row.fechaelaboracion) 
+    });
     setModalOpen(true);
     setEditPhotos([]);
+    setPendingPhotos([]);
     loadEditPhotos(row.id);
   };
 
   const handlePhotoFileUpload = async (file) => {
-    if (!editing || !file) return;
+    if (!file) return;
 
-    // ── Control de duplicados: comparar nombre de archivo con los ya subidos ──
+    if (!editing) {
+      // Modo creación: guardar en memoria
+      const isDuplicate = pendingPhotos.some((p) => p.name === file.name && p.size === file.size);
+      if (isDuplicate) {
+        alert(`La imagen "${file.name}" ya fue agregada.`);
+        if (photoFileRef.current) photoFileRef.current.value = "";
+        return;
+      }
+      setPendingPhotos((prev) => [...prev, file]);
+      if (photoFileRef.current) photoFileRef.current.value = "";
+      return;
+    }
+
+    // Modo edición: subir directo
     const isDuplicate = editPhotos.some((p) => {
       const existingName = p.urlarchivo?.split("/").pop() ?? "";
-      // Los archivos subidos tienen formato "foto-TIMESTAMP-RANDOM.ext"
-      // Para cámara comparamos el nombre original; para archivo comparamos solo la extensión no aplica
-      // La estrategia más simple: comparar tamaño + nombre del nuevo archivo contra el original almacenado
       return existingName.endsWith(file.name.split("/").pop());
     });
     if (isDuplicate) {
@@ -254,48 +278,65 @@ export const MuestrasPage = () => {
     }
   };
 
-  const captureAndUpload = async () => {
-    if (!videoRef.current || !canvasRef.current || !editing) return;
-    const video = videoRef.current;
+  const handleCameraCapture = () => {
+    if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
+    const video = videoRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
-    stopCamera();
-    canvas.toBlob(async (blob) => {
+
+    canvas.toBlob((blob) => {
       if (!blob) return;
-      const file = new File([blob], `camara-${editing.referencia}-${Date.now()}.jpg`, { type: "image/jpeg" });
-      setUploadingPhoto(true);
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("muestraid", editing.id);
-        fd.append("origen", "camara");
-        fd.append("fechacarga", new Date().toISOString().slice(0, 10));
-        await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
-        await loadEditPhotos(editing.id);
-      } catch (err) {
-        console.error("Error guardando foto:", err);
-      } finally {
-        setUploadingPhoto(false);
-      }
-    }, "image/jpeg", 0.92);
+      const file = new File([blob], `camara-${Date.now()}.png`, { type: "image/png" });
+      handlePhotoFileUpload(file);
+      stopCamera();
+    }, "image/png");
+  };
+
+  const removePendingPhoto = (index) => {
+    setPendingPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const onSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...form,
-      pareselaborados: toNumber(form.pareselaborados) || 0,
-      talla: toNumber(form.talla),
-      licenciado: Boolean(form.licenciado),
-    };
-    if (editing) await muestras.update(editing.id, payload);
-    else await muestras.create(payload);
-    resetAndClose();
-    fetchRows(filters, page);
+    try {
+      const payload = { 
+        ...form,
+        pareselaborados: toNumber(form.pareselaborados) || 0,
+        talla: toNumber(form.talla),
+        licenciado: Boolean(form.licenciado),
+      };
+
+      if (editing) {
+        await muestras.update(editing.id, payload);
+      } else {
+        const newMuestra = await muestras.create(payload);
+        
+        // Subir fotos pendientes si hay
+        if (pendingPhotos.length > 0 && newMuestra?.id) {
+          for (const file of pendingPhotos) {
+            try {
+              const fd = new FormData();
+              fd.append("file", file);
+              fd.append("muestraid", newMuestra.id);
+              fd.append("origen", "archivo");
+              fd.append("fechacarga", new Date().toISOString().slice(0, 10));
+              await api.postForm(`${ENDPOINTS.fotos}/upload`, fd);
+            } catch (err) {
+              console.error("Error subiendo foto post-creación:", err);
+            }
+          }
+        }
+      }
+      resetAndClose();
+      fetchRows(filters, page);
+    } catch (err) {
+      alert(err.message || "Error al guardar");
+    }
   };
+
   const confirmDelete = async () => {
     if (!rowToDelete) return;
     await muestras.remove(rowToDelete.id);
@@ -464,6 +505,10 @@ export const MuestrasPage = () => {
               <option value="">Todas las ubicaciones</option>
               {catalogs.ubicaciones.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
+            <select className={inputCls} value={filters.disenadorid} onChange={(e) => setFilters((p) => ({ ...p, disenadorid: e.target.value }))}>
+              <option value="">Todos los diseñadores</option>
+              {catalogs.disenadores.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+            </select>
             <select className={inputCls} value={filters.licenciado} onChange={(e) => setFilters((p) => ({ ...p, licenciado: e.target.value }))}>
               <option value="">Licencia (todas)</option>
               <option value="true">Licenciado</option>
@@ -566,9 +611,6 @@ export const MuestrasPage = () => {
             <FieldWrap label="Referencia">
               <input className={inputCls} required value={form.referencia || ""} onChange={(e) => onChange("referencia", e.target.value)} placeholder="Ej: REF-001" />
             </FieldWrap>
-            <FieldWrap label="Moldería (nombre libre)">
-              <input className={inputCls} required value={form.molderia || ""} onChange={(e) => onChange("molderia", e.target.value)} placeholder="Nombre de la moldería" />
-            </FieldWrap>
             <FieldWrap label="Segmento">
               <input className={inputCls} required value={form.segmento || ""} onChange={(e) => onChange("segmento", e.target.value)} placeholder="Ej: Dama, Caballero..." />
             </FieldWrap>
@@ -598,8 +640,23 @@ export const MuestrasPage = () => {
               </select>
             </FieldWrap>
             <FieldWrap label="Moldería">
-              <select className={inputCls} required value={form.molderiaid || ""} onChange={(e) => onChange("molderiaid", e.target.value)}>
+              <select className={inputCls} required value={form.molderiaid || ""} onChange={async (e) => {
+                if (e.target.value === "NEW") {
+                  const nombre = window.prompt("Nombre de la nueva moldería:");
+                  if (!nombre) return;
+                  try {
+                    const created = await api.post(ENDPOINTS.molderias, { nombre, tipohorma: "Pendiente", talon: "Pendiente", punta: "Pendiente", esnueva: true });
+                    await catalogs.load();
+                    onChange("molderiaid", created.id);
+                  } catch (err) {
+                    alert(err.message || "Error creando moldería");
+                  }
+                  return;
+                }
+                onChange("molderiaid", e.target.value);
+              }}>
                 <option value="">Selecciona moldería</option>
+                <option value="NEW" className="font-bold text-[#1B3D8F]">+ Crear nueva moldería</option>
                 {catalogs.molderias.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
               </select>
             </FieldWrap>
@@ -633,138 +690,86 @@ export const MuestrasPage = () => {
               <textarea className={inputCls} rows="3" value={form.observaciones || ""} onChange={(e) => onChange("observaciones", e.target.value)} placeholder="Notas adicionales..." />
             </FieldWrap>
 
-            {/* ── FOTOS — solo visible al editar ── */}
-            {editing && (
-              <div className="col-span-full space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                {/* Cabecera */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                    Fotos de la muestra
-                    {editPhotos.length > 0 && (
-                      <span className="ml-2 rounded-full bg-[#1B3D8F] px-2 py-0.5 text-[10px] font-black text-white">
-                        {editPhotos.length}
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    {/* Input oculto para subir archivo */}
-                    <input
-                      ref={photoFileRef}
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      id="edit-photo-file"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoFileUpload(f); }}
-                    />
-                    <label
-                      htmlFor="edit-photo-file"
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-3 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
-                    >
-                      <FiUploadCloud className="h-3.5 w-3.5" />
-                      Subir imagen
-                    </label>
-                    <button
-                      type="button"
-                      onClick={startCamera}
-                      disabled={cameraOpen}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white disabled:opacity-50"
-                    >
-                      <FiCamera className="h-3.5 w-3.5" />
-                      Tomar foto
+            {/* ── FOTOS — visible al editar y crear ── */}
+            <div className="col-span-full space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+              {/* Cabecera */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  Fotos de la muestra
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file" accept="image/*" className="hidden" ref={photoFileRef}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handlePhotoFileUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <button type="button" onClick={() => photoFileRef.current?.click()} disabled={uploadingPhoto} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50">
+                    <FiUploadCloud className="h-3.5 w-3.5" /> Subir archivo
+                  </button>
+                  <button type="button" onClick={startCamera} disabled={uploadingPhoto || cameraOpen} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1B3D8F] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#163272] disabled:opacity-50">
+                    <FiCamera className="h-3.5 w-3.5" /> Usar cámara
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid de fotos subidas (edición) */}
+              {editing && editPhotos.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                  {editPhotos.map((p) => (
+                    <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <img src={`${API_ROOT_URL}${p.urlarchivo}`} alt="Muestra" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 transition group-hover:opacity-100 flex items-center justify-center">
+                        <button type="button" onClick={() => deletePhoto(p.id)} className="rounded-full bg-white/20 p-2 text-white hover:bg-rose-500 backdrop-blur-sm transition">
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Grid de fotos pendientes (creación) */}
+              {!editing && pendingPhotos.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                  {pendingPhotos.map((f, i) => (
+                    <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <img src={URL.createObjectURL(f)} alt="Pendiente" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 transition group-hover:opacity-100 flex items-center justify-center">
+                        <button type="button" onClick={() => removePendingPhoto(i)} className="rounded-full bg-white/20 p-2 text-white hover:bg-rose-500 backdrop-blur-sm transition">
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <span className="absolute bottom-1 right-1 bg-black/50 text-[10px] text-white px-1.5 py-0.5 rounded backdrop-blur">Por subir</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {uploadingPhoto && (
+                <p className="text-center text-xs font-semibold text-[#1B3D8F] animate-pulse">
+                  Subiendo foto...
+                </p>
+              )}
+
+              {/* UI Cámara */}
+              {cameraOpen && (
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-slate-200 bg-black">
+                  <video ref={videoRef} autoPlay playsInline className="h-[300px] w-full object-cover" />
+                  <canvas ref={canvasRef} className="hidden" />
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
+                    <button type="button" onClick={stopCamera} className="rounded-full bg-white/10 p-3 text-white backdrop-blur hover:bg-white/20">
+                      <FiX className="h-5 w-5" />
+                    </button>
+                    <button type="button" onClick={handleCameraCapture} className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#1B3D8F] shadow-lg hover:scale-105 transition">
+                      <FiCamera className="h-6 w-6" />
                     </button>
                   </div>
                 </div>
-
-                {/* Vista de cámara en vivo */}
-                {cameraOpen && (
-                  <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-black shadow-sm">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full max-h-56 object-cover"
-                    />
-                    <canvas ref={canvasRef} className="sr-only" />
-                    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-3">
-                      <button
-                        type="button"
-                        onClick={captureAndUpload}
-                        disabled={uploadingPhoto}
-                        title="Capturar foto"
-                        className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg ring-4 ring-white/30 transition hover:scale-110 active:scale-95 disabled:opacity-60"
-                      >
-                        <FiCamera className="h-6 w-6 text-[#1B3D8F]" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={stopCamera}
-                        title="Cerrar cámara"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-600 text-white shadow-lg transition hover:bg-rose-700"
-                      >
-                        <FiX className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Indicador de subida */}
-                {uploadingPhoto && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
-                    Guardando foto...
-                  </div>
-                )}
-
-                {/* Galería de fotos */}
-                {loadingEditPhotos ? (
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
-                    Cargando fotos...
-                  </div>
-                ) : editPhotos.length === 0 ? (
-                  <div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-slate-200 bg-white py-6 text-center">
-                    <FiCamera className="h-6 w-6 text-slate-300" />
-                    <p className="text-xs font-medium text-slate-400">Sin fotos aún</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {editPhotos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
-                      >
-                        <img
-                          src={`${API_ROOT_URL}${photo.urlarchivo}`}
-                          alt="Foto muestra"
-                          className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                        {/* Ver a pantalla completa */}
-                        <a
-                          href={`${API_ROOT_URL}${photo.urlarchivo}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="absolute inset-0 flex items-end justify-start p-1.5 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition group-hover:opacity-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <span className="text-[10px] font-semibold text-white">Ver</span>
-                        </a>
-                        {/* Eliminar */}
-                        <button
-                          type="button"
-                          onClick={() => deletePhoto(photo.id)}
-                          title="Eliminar foto"
-                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white opacity-0 shadow transition hover:bg-rose-700 group-hover:opacity-100"
-                        >
-                          <FiTrash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="col-span-full flex justify-end gap-3 border-t border-slate-100 pt-4">
               <button type="button" className="ghost-btn" onClick={resetAndClose}>Cancelar</button>

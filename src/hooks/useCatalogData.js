@@ -29,7 +29,7 @@ export const useCatalogData = () => {
     try {
       const requests = [
         api.get(ENDPOINTS.clientes).catch(() => []),
-        api.get(ENDPOINTS.molderias).catch(() => []),
+        api.get(`${ENDPOINTS.molderias}?limit=1000`).catch(() => []),
         api.get(ENDPOINTS.ubicaciones).catch(() => []),
         api.get(ENDPOINTS.usuarios).catch(() => []),
         api.get(ENDPOINTS.disenadores || "/disenadores").catch(() => []),
