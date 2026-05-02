@@ -10,9 +10,10 @@ import { toDateInput, toNumber } from "../utils/format";
 import {
   FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight,
   FiAlertTriangle, FiSearch, FiPlus, FiFilter, FiX, FiEye, FiUserX,
-  FiCamera, FiUploadCloud, FiTrash2,
+  FiCamera, FiUploadCloud, FiTrash2, FiPrinter,
 } from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
+import { generateQrDataUrl } from "../utils/qr";
 
 const PAGE_SIZE = 20;
 
@@ -90,6 +91,8 @@ export const MuestrasPage = () => {
   const [viewRow, setViewRow] = useState(null);
   const [presentaciones, setPresentaciones] = useState([]);
   const [loadingPres, setLoadingPres] = useState(false);
+  const [qrUrl, setQrUrl] = useState("");
+  const [qrLink, setQrLink] = useState("");
   const [page, setPage] = useState(1);
   const debounceRef = useRef(null);
 
@@ -374,6 +377,8 @@ export const MuestrasPage = () => {
     setViewRow(row);
     setPresentaciones([]);
     setViewPhotos([]);
+    setQrUrl("");
+    setQrLink("");
     setLoadingPres(true);
     setLoadingViewPhotos(true);
     try {
@@ -383,6 +388,13 @@ export const MuestrasPage = () => {
       ]);
       setPresentaciones(Array.isArray(presData) ? presData : []);
       setViewPhotos(Array.isArray(fotosData) ? fotosData : []);
+
+      // Generar QR para la muestra
+      const baseUrl = window.location.origin;
+      const detailUrl = `${baseUrl}/muestra/${row.id}`;
+      setQrLink(detailUrl);
+      const qrDataUrl = await generateQrDataUrl(detailUrl);
+      setQrUrl(qrDataUrl);
     } catch {
       setPresentaciones([]);
       setViewPhotos([]);
@@ -1019,6 +1031,96 @@ export const MuestrasPage = () => {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* QR y botón de impresión */}
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Código QR
+                </h3>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-6 flex flex-col sm:flex-row gap-6 items-center justify-center">
+                {qrUrl ? (
+                  <>
+                    <div className="flex flex-col items-center gap-3">
+                      <img
+                        src={qrUrl}
+                        alt="QR"
+                        width="200"
+                        height="200"
+                        className="border border-slate-200 rounded-lg"
+                      />
+                      {qrLink && (
+                        <div className="w-full max-w-sm text-center">
+                          <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
+                            URL
+                          </p>
+                          <p className="text-xs text-slate-600 break-all font-mono">
+                            {qrLink}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-6 py-4">
+                      <p className="text-sm text-slate-600 text-center">
+                        Escanea este código QR con tu dispositivo para acceder a
+                        los detalles completos de esta muestra.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const printWindow = window.open();
+                          const html = `
+                            <!DOCTYPE html>
+                            <html>
+                              <head>
+                                <meta charset="UTF-8" />
+                                <title>QR - ${viewRow.referencia}</title>
+                                <style>
+                                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                                  body { font-family: system-ui, -apple-system, sans-serif; padding: 40px 20px; background: white; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+                                  .qr-container { text-align: center; padding: 30px; border: 2px solid #e5e7eb; border-radius: 8px; max-width: 450px; }
+                                  h1 { margin-bottom: 10px; font-size: 24px; font-weight: 700; color: #1f2937; }
+                                  .label { margin-bottom: 20px; font-size: 14px; color: #6b7280; font-weight: 500; }
+                                  .qr-image { margin: 30px 0; display: flex; justify-content: center; }
+                                  img { width: 300px; height: 300px; border: 2px solid #e5e7eb; padding: 8px; background: white; display: block; image-rendering: pixelated; }
+                                  .qr-url { margin-top: 20px; font-size: 12px; color: #6b7280; word-break: break-all; font-family: monospace; }
+                                  @media print { body { padding: 0; background: white; } .qr-container { border: none; } }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="qr-container">
+                                  <h1>${viewRow.referencia}</h1>
+                                  <div class="label">Muestra: ${viewRow.segmento || "-"}</div>
+                                  <div class="qr-image">
+                                    <img src="${qrUrl}" alt="QR Code" onload="setTimeout(() => window.print(), 300);" />
+                                  </div>
+                                  <div class="qr-url">${qrLink}</div>
+                                </div>
+                              </body>
+                            </html>
+                          `;
+                          printWindow.document.open();
+                          printWindow.document.write(html);
+                          printWindow.document.close();
+                        }}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B3D8F] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#142a5f] transition"
+                      >
+                        <FiPrinter className="h-4 w-4" />
+                        Imprimir QR
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full flex items-center justify-center py-8 text-slate-400">
+                    <div className="text-center">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F] mx-auto mb-2" />
+                      <p className="text-sm">Generando código QR...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>

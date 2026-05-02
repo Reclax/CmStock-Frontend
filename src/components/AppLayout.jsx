@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 
 const navItems = [
@@ -45,10 +45,8 @@ export const AppLayout = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[linear-gradient(180deg,#f8fbff_0%,#edf3fb_100%)]">
       <header className="bg-[#0f2554] border-b border-white/[0.07]">
-
         {/* Top bar */}
         <div className="flex items-center h-[85px] px-5 lg:px-7 gap-0">
-
           {/* Brand */}
           <div className="flex items-center gap-3 pr-7 border-r border-white/10 flex-shrink-0">
             <img
@@ -60,15 +58,17 @@ export const AppLayout = () => {
               <p className="m-0 text-[15px] font-semibold text-white tracking-[-0.02em]">
                 CM Stock
               </p>
-              <p className="m-0 text-[11px] text-white/40">Control de muestras</p>
+              <p className="m-0 text-[11px] text-white/40">
+                Control de muestras
+              </p>
             </div>
           </div>
 
           {/* Nav desktop */}
-         <nav
-  className="hidden lg:flex items-center flex-1 px-5 gap-0.5 overflow-x-auto"
-  style={{ scrollbarWidth: "none" }}
->
+          <nav
+            className="hidden lg:flex items-center flex-1 px-5 gap-0.5 overflow-x-auto"
+            style={{ scrollbarWidth: "none" }}
+          >
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -95,7 +95,9 @@ export const AppLayout = () => {
                 <p className="m-0 text-[13px] font-semibold text-white">
                   {user?.nombre || "Usuario"}
                 </p>
-                <p className="m-0 text-[11px] text-white/40">{user?.rol || "rol"}</p>
+                <p className="m-0 text-[11px] text-white/40">
+                  {user?.rol || "rol"}
+                </p>
               </div>
             </div>
             <button
@@ -144,7 +146,9 @@ export const AppLayout = () => {
                 <p className="m-0 text-[13px] font-semibold text-white">
                   {user?.nombre || "Usuario"}
                 </p>
-                <p className="m-0 text-[11px] text-white/40">{user?.rol || "rol"}</p>
+                <p className="m-0 text-[11px] text-white/40">
+                  {user?.rol || "rol"}
+                </p>
               </div>
             </div>
             <div className="h-px bg-white/[0.07] mb-2" />
