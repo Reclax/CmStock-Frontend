@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import AppLoading from "../components/AppLoading";
 
 export const LoginPage = ({ onLogin, onLoadingSession }) => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export const LoginPage = ({ onLogin, onLoadingSession }) => {
 
   return (
     <>
+      {loading && <AppLoading message="Iniciando sesión..." />}
       <style>{`
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(12px); }
@@ -64,9 +66,11 @@ export const LoginPage = ({ onLogin, onLoadingSession }) => {
 
           {/* Logo */}
           <div className="mb-3 inline-flex w-fit items-center gap-3 rounded-lg border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md md:mb-10">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-sm font-bold text-[#1B3D8F]">
-              cm
-            </div>
+            <img 
+              src="/image.png" 
+              alt="Logo" 
+              className="h-9 w-9 rounded-md object-contain bg-white/10 p-1" 
+            />
             <div className="leading-tight">
               <div className="text-[17px] font-bold tracking-[-0.5px] text-white">
                 CM Stock
