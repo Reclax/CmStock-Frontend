@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
+import AppLoading from "../components/AppLoading";
 
 const MONTH_NAMES = [
   "Ene",
@@ -328,19 +329,35 @@ const DonutChart = ({ values, muted = false }) => {
   );
 };
 
-export const DashboardPage = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [data, setData] = useState({
-    muestras: [],
-    presentaciones: [],
-    producciones: [],
-    movimientos: [],
-    clientes: [],
-  });
+let globalDashboardCache = null;
+let globalDashboardCacheTime = 0;
+const CACHE_FRESHNESS_MS = 1000 * 120; // 2 minutos
 
-  const load = async () => {
-    setLoading(true);
+export const DashboardPage = () => {
+  const [loading, setLoading] = useState(!globalDashboardCache);
+  const [error, setError] = useState("");
+  const [data, setData] = useState(
+    globalDashboardCache || {
+      muestras: [],
+      presentaciones: [],
+      producciones: [],
+      movimientos: [],
+      clientes: [],
+    }
+  );
+
+  const load = async (forceRefetch = false) => {
+    if (globalDashboardCache && !forceRefetch) {
+      setData(globalDashboardCache);
+      setLoading(false);
+      // Si el caché es muy reciente, no hacemos petición en segundo plano
+      if (Date.now() - globalDashboardCacheTime < CACHE_FRESHNESS_MS) {
+        return;
+      }
+    } else {
+      setLoading(true);
+    }
+
     setError("");
     try {
       const [muestras, presentaciones, producciones, movimientos, clientes] =
@@ -352,15 +369,21 @@ export const DashboardPage = () => {
           api.get(ENDPOINTS.clientes),
         ]);
 
-      setData({
+      const newData = {
         muestras: toCollection(muestras),
         presentaciones: toCollection(presentaciones),
         producciones: toCollection(producciones),
         movimientos: toCollection(movimientos),
         clientes: toCollection(clientes),
-      });
+      };
+
+      globalDashboardCache = newData;
+      globalDashboardCacheTime = Date.now();
+      setData(newData);
     } catch (err) {
-      setError(err.message || "No se pudo cargar el dashboard");
+      if (!globalDashboardCache) {
+        setError(err.message || "No se pudo cargar el dashboard");
+      }
     } finally {
       setLoading(false);
     }
@@ -524,13 +547,13 @@ export const DashboardPage = () => {
         <button
           type="button"
           className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:-translate-y-px hover:bg-white/20"
-          onClick={load}
+          onClick={() => load(true)}
         >
           Actualizar
         </button>
       </header>
 
-      {loading && <p className="text-slate-500">Cargando indicadores...</p>}
+      {loading && <AppLoading message="Cargando panel principal..." />}
       {error && (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
           {error}

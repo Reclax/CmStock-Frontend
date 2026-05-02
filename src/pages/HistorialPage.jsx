@@ -148,9 +148,18 @@ export const HistorialPage = () => {
     );
   }, [trazabilidades.items]);
 
+  const muestrasMap = useMemo(() => {
+    return Object.fromEntries(
+      muestras.items.map((item) => [item.id, item.referencia]),
+    );
+  }, [muestras.items]);
+
+  const getMuestraLabel = (row) =>
+    row.muestra?.referencia || muestrasMap[row.muestraid] || row.muestraid;
+
   const columnsByTab = {
     presentaciones: [
-      { key: "muestraid", label: "Muestra", render: (row) => row.muestraid },
+      { key: "muestraid", label: "Referencia", render: getMuestraLabel },
       {
         key: "clienteid",
         label: "Cliente",
@@ -168,7 +177,7 @@ export const HistorialPage = () => {
     ],
     producciones: [
       { key: "ordennumero", label: "Orden" },
-      { key: "muestraid", label: "Muestra" },
+      { key: "muestraid", label: "Referencia", render: getMuestraLabel },
       {
         key: "clienteid",
         label: "Cliente",
@@ -183,7 +192,7 @@ export const HistorialPage = () => {
       { key: "mes", label: "Mes" },
     ],
     trazabilidades: [
-      { key: "muestraid", label: "Muestra" },
+      { key: "muestraid", label: "Referencia", render: getMuestraLabel },
       { key: "disenadorid", label: "Disenador" },
       { key: "modeladorid", label: "Modelador" },
       {
