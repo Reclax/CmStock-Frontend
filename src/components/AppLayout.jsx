@@ -8,7 +8,6 @@ const navItems = [
   { to: "/historial", label: "Historial" },
   { to: "/inventario", label: "Inventario" },
   { to: "/administracion", label: "Administración" },
-  { to: "/reportes", label: "Reportes" },
   { to: "/herramientas", label: "Herramientas" },
 ];
 

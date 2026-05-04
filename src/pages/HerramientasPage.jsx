@@ -4,6 +4,8 @@ import { ENDPOINTS } from "../api/endpoints";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { ImportacionComponent } from "../components/ImportacionComponent";
+import { ReportesPage } from "./ReportesPage";
+
 import {
   FiUploadCloud,
   FiImage,
@@ -276,6 +278,7 @@ export const HerramientasPage = () => {
   const tabs = [
     { id: "avanzada", label: "Importación Avanzada" },
     { id: "imagenes", label: "Gestión de Imágenes" },
+    { id: "reportes", label: "Reportes" },
   ];
 
   return (
@@ -330,6 +333,13 @@ export const HerramientasPage = () => {
             </p>
           </div>
           <GestionImagenesBulk />
+        </div>
+      )}
+
+      {/* Tab: Reportes */}
+      {activeTab === "reportes" && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <ReportesPage />
         </div>
       )}
     </section>
