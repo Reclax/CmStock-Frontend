@@ -5,6 +5,7 @@ import { AppLayout } from "./components/AppLayout";
 import { PwaPrompts } from "./components/PwaPrompts";
 import { AdministracionPage } from "./pages/AdministracionPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { EtiquetasQrPage } from "./pages/EtiquetasQrPage";
 import { HerramientasPage } from "./pages/HerramientasPage";
 import { HistorialPage } from "./pages/HistorialPage";
 import { ImagenesPage } from "./pages/ImagenesPage";
@@ -30,6 +31,7 @@ function App() {
             <Route path="/administracion" element={<AdministracionPage />} />
             <Route path="/reportes" element={<ReportesPage />} />
             <Route path="/herramientas" element={<HerramientasPage />} />
+            <Route path="/etiquetas-qr" element={<EtiquetasQrPage />} />
             <Route path="/imagenes" element={<ImagenesPage />} />
           </Route>
         </Route>
