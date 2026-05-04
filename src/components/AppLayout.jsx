@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { FiCamera, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../auth/useAuth";
+import { Modal } from "./Modal";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
@@ -12,26 +14,24 @@ const navItems = [
   { to: "/herramientas", label: "Herramientas" },
 ];
 
-const LogoutIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path
-      d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10 11l3-3-3-3M13 8H6"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 export const AppLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const openLogoutConfirm = () => {
+    setMenuOpen(false);
+    setLogoutConfirmOpen(true);
+  };
+
+  const openQrScanner = () => {
+    navigate("/etiquetas-qr");
   };
 
   const initials = (user?.nombre || "U")
@@ -84,7 +84,7 @@ export const AppLayout = () => {
             ))}
           </nav>
 
-          {/* Usuario + logout desktop */}
+          {/* Usuario + QR + logout desktop */}
           <div className="hidden lg:flex items-center gap-3 pl-5 border-l border-white/10 flex-shrink-0 ml-auto">
             <div className="flex items-center gap-2.5 px-[11px] py-[7px] rounded-[9px] hover:bg-white/[0.07] cursor-pointer transition">
               <div className="w-[34px] h-[34px] rounded-full bg-[#1b3d8f] border-[1.5px] border-white/20 flex items-center justify-center text-[12px] font-semibold text-white flex-shrink-0">
@@ -101,11 +101,21 @@ export const AppLayout = () => {
             </div>
             <button
               type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] border border-white/15 text-white/70 text-[12px] font-semibold transition hover:bg-white/[0.08] hover:text-white"
+              onClick={openQrScanner}
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] border border-white/15 text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+              aria-label="Escanear QR"
+              title="Escanear QR"
             >
-              <LogoutIcon />
-              Cerrar sesión
+              <FiCamera className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={openLogoutConfirm}
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] border border-white/15 text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <FiLogOut className="h-5 w-5" />
             </button>
           </div>
 
@@ -169,7 +179,7 @@ export const AppLayout = () => {
             <div className="h-px bg-white/[0.07] my-2" />
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={openLogoutConfirm}
               className="w-full text-left px-3 py-2.5 rounded-[9px] border border-white/15 text-white/65 text-[13px] font-semibold hover:bg-white/[0.07] hover:text-white transition"
             >
               Cerrar sesión
@@ -181,6 +191,36 @@ export const AppLayout = () => {
       <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-7">
         <Outlet />
       </main>
+
+      {logoutConfirmOpen && (
+        <Modal
+          title="Confirmar cierre de sesión"
+          onClose={() => setLogoutConfirmOpen(false)}
+          maxWidthClass="max-w-[420px]"
+        >
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              ¿Seguro que deseas cerrar sesión?
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setLogoutConfirmOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 active:scale-[0.98]"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

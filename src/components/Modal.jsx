@@ -1,11 +1,13 @@
-export const Modal = ({ title, onClose, children }) => {
+export const Modal = ({ title, onClose, children, maxWidthClass }) => {
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-5 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
     >
-      <div className="max-h-[92vh] w-full max-w-[920px] overflow-auto rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(17,36,74,0.12)]">
+      <div
+        className={`max-h-[92vh] w-full ${maxWidthClass || "max-w-[920px]"} overflow-auto rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(17,36,74,0.12)]`}
+      >
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-5 sm:px-6">
           <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
             {title}

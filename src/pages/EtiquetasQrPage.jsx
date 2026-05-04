@@ -146,7 +146,7 @@ export const EtiquetasQrPage = () => {
   const muestras = useCrud(ENDPOINTS.muestras);
   const catalogs = useCatalogData();
   const { clientesMap, molderiasMap, ubicacionesMap, usuariosMap, disenadoresMap } = catalogs;
-  const [activeTab, setActiveTab] = useState("generar");
+  const [activeTab, setActiveTab] = useState("escanear");
   const [selectedMuestra, setSelectedMuestra] = useState("");
   const [muestraQrUrl, setMuestraQrUrl] = useState("");
   const [scanResult, setScanResult] = useState("");

@@ -7,6 +7,7 @@ import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
+import Select from "react-select";
 import {
   FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight,
   FiAlertTriangle, FiSearch, FiPlus, FiFilter, FiX, FiEye, FiUserX,
@@ -119,6 +120,9 @@ export const MuestrasPage = () => {
   // ── Estado de Guardado ──
   const [isSaving, setIsSaving] = useState(false);
 
+  const [dbDimaValues, setDbDimaValues] = useState([]);
+  const [dbProcesoValues, setDbProcesoValues] = useState([]);
+
   const fetchRows = useCallback(async (activeFilters, activePage) => {
     setLoadingRows(true);
     setFetchError("");
@@ -162,6 +166,97 @@ export const MuestrasPage = () => {
     const ids = new Set(rows.map((i) => i.disenadorid).filter(Boolean));
     return Array.from(ids);
   }, [rows]);
+
+  useEffect(() => {
+    const loadDbOptions = async () => {
+      try {
+        const payload = await api.get(`${ENDPOINTS.muestras}?page=1&limit=5000`);
+        const data = toCollection(payload);
+        const dimaSet = new Set();
+        const procesoSet = new Set();
+        data.forEach((row) => {
+          if (row.dima) dimaSet.add(String(row.dima).trim());
+          if (row.proceso) procesoSet.add(String(row.proceso).trim());
+        });
+        setDbDimaValues(Array.from(dimaSet).filter(Boolean));
+        setDbProcesoValues(Array.from(procesoSet).filter(Boolean));
+      } catch {
+        setDbDimaValues([]);
+        setDbProcesoValues([]);
+      }
+    };
+
+    loadDbOptions();
+  }, []);
+
+  const dimaOptions = useMemo(() => {
+    const values = new Set();
+    dbDimaValues.forEach((value) => values.add(String(value).trim()));
+    rows.forEach((row) => {
+      if (row.dima) values.add(String(row.dima).trim());
+    });
+    if (form.dima) values.add(String(form.dima).trim());
+    return Array.from(values).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [dbDimaValues, rows, form.dima]);
+
+  const procesoOptions = useMemo(() => {
+    const values = new Set();
+    dbProcesoValues.forEach((value) => values.add(String(value).trim()));
+    rows.forEach((row) => {
+      if (row.proceso) values.add(String(row.proceso).trim());
+    });
+    if (form.proceso) values.add(String(form.proceso).trim());
+    return Array.from(values).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [dbProcesoValues, rows, form.proceso]);
+
+  const selectStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: "42px",
+      borderRadius: "0.75rem",
+      borderColor: state.isFocused ? "#1B3D8F" : "#e2e8f0",
+      backgroundColor: "#f8fafc",
+      boxShadow: state.isFocused ? "0 0 0 3px rgba(27,61,143,0.08)" : "none",
+      paddingLeft: "0.25rem",
+    }),
+    valueContainer: (base) => ({ ...base, padding: "0 0.5rem" }),
+    input: (base) => ({ ...base, margin: 0, padding: 0 }),
+    menuPortal: (base) => ({ ...base, zIndex: 60 }),
+    menu: (base) => ({ ...base, zIndex: 60 }),
+  };
+
+  const clienteOptions = useMemo(
+    () => catalogs.clientes.map((i) => ({ value: i.id, label: i.nombre })),
+    [catalogs.clientes]
+  );
+
+  const molderiaOptions = useMemo(
+    () => [
+      { value: "__new__", label: "+ Crear nueva moldería" },
+      ...catalogs.molderias.map((i) => ({ value: i.id, label: i.nombre })),
+    ],
+    [catalogs.molderias]
+  );
+
+  const ubicacionOptions = useMemo(
+    () => catalogs.ubicaciones.map((i) => ({ value: i.id, label: i.nombre })),
+    [catalogs.ubicaciones]
+  );
+
+  const disenadorOptions = useMemo(
+    () => catalogs.disenadores.map((d) => ({ value: d.id, label: d.nombre })),
+    [catalogs.disenadores]
+  );
+
+  const dimaSelectOptions = useMemo(
+    () => dimaOptions.map((value) => ({ value, label: value })),
+    [dimaOptions]
+  );
+
+  const procesoSelectOptions = useMemo(
+    () => procesoOptions.map((value) => ({ value, label: value })),
+    [procesoOptions]
+  );
 
   const totalPages = Math.ceil(totalItems / PAGE_SIZE);
   const startIndex = totalItems ? (page - 1) * PAGE_SIZE + 1 : 0;
@@ -654,7 +749,16 @@ export const MuestrasPage = () => {
               <input className={inputCls} required value={form.segmento || ""} onChange={(e) => onChange("segmento", e.target.value)} placeholder="Ej: Dama, Caballero..." />
             </FieldWrap>
             <FieldWrap label="DIMA">
-              <input className={inputCls} value={form.dima || ""} onChange={(e) => onChange("dima", e.target.value)} placeholder="Código DIMA" />
+              <Select
+                options={dimaSelectOptions}
+                placeholder="Selecciona DIMA"
+                value={dimaSelectOptions.find((o) => o.value === (form.dima || "")) || null}
+                onChange={(option) => onChange("dima", option ? option.value : "")}
+                isClearable
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <FieldWrap label="Pares elaborados">
               <input className={inputCls} required type="number" min="0" value={form.pareselaborados ?? 0} onChange={(e) => onChange("pareselaborados", e.target.value)} />
@@ -673,41 +777,67 @@ export const MuestrasPage = () => {
               </select>
             </FieldWrap>
             <FieldWrap label="Cliente">
-              <select className={inputCls} required value={form.clienteid || ""} onChange={(e) => onChange("clienteid", e.target.value)}>
-                <option value="">Selecciona un cliente</option>
-                {catalogs.clientes.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-              </select>
+              <Select
+                options={clienteOptions}
+                placeholder="Selecciona un cliente"
+                value={clienteOptions.find((o) => o.value === form.clienteid) || null}
+                onChange={(option) => onChange("clienteid", option ? option.value : "")}
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <FieldWrap label="Moldería">
-              <select className={inputCls} required value={form.molderiaid || ""} onChange={(e) => {
-                if (e.target.value === "NEW") {
-                  setNewMolderiaName("");
-                  setMolderiaPromptOpen(true);
-                  return;
-                }
-                onChange("molderiaid", e.target.value);
-              }}>
-                <option value="">Selecciona moldería</option>
-                <option value="NEW" className="font-bold text-[#1B3D8F]">+ Crear nueva moldería</option>
-                {catalogs.molderias.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-              </select>
+              <Select
+                options={molderiaOptions}
+                placeholder="Selecciona moldería"
+                value={molderiaOptions.find((o) => o.value === form.molderiaid) || null}
+                onChange={(option) => {
+                  if (option?.value === "__new__") {
+                    setNewMolderiaName("");
+                    setMolderiaPromptOpen(true);
+                    return;
+                  }
+                  onChange("molderiaid", option ? option.value : "");
+                }}
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <FieldWrap label="Ubicación">
-              <select className={inputCls} required value={form.ubicacionid || ""} onChange={(e) => onChange("ubicacionid", e.target.value)}>
-                <option value="">Selecciona ubicación</option>
-                {catalogs.ubicaciones.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-              </select>
+              <Select
+                options={ubicacionOptions}
+                placeholder="Selecciona ubicación"
+                value={ubicacionOptions.find((o) => o.value === form.ubicacionid) || null}
+                onChange={(option) => onChange("ubicacionid", option ? option.value : "")}
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <FieldWrap label="Diseñador">
-              <select className={inputCls} required value={form.disenadorid || ""} onChange={(e) => onChange("disenadorid", e.target.value)}>
-                <option value="">Selecciona diseñador</option>
-                {catalogs.disenadores.map((d) => (
-                  <option key={d.id} value={d.id}>{d.nombre}</option>
-                ))}
-              </select>
+              <Select
+                options={disenadorOptions}
+                placeholder="Selecciona diseñador"
+                value={disenadorOptions.find((o) => o.value === form.disenadorid) || null}
+                onChange={(option) => onChange("disenadorid", option ? option.value : "")}
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <FieldWrap label="Proceso">
-              <input className={inputCls} value={form.proceso || ""} onChange={(e) => onChange("proceso", e.target.value)} placeholder="Proceso productivo" />
+              <Select
+                options={procesoSelectOptions}
+                placeholder="Selecciona proceso"
+                value={procesoSelectOptions.find((o) => o.value === (form.proceso || "")) || null}
+                onChange={(option) => onChange("proceso", option ? option.value : "")}
+                isClearable
+                menuPlacement="bottom"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
             </FieldWrap>
             <div className="flex items-center gap-2.5 pt-1">
               <input
