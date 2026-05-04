@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import AppLoading from "../components/AppLoading";
@@ -19,6 +27,7 @@ const MONTH_NAMES = [
 ];
 
 const EMPTY_MONTHLY = Array.from({ length: 12 }, () => 0);
+const MUESTRAS_PAGE_LIMIT = 500;
 
 const toDate = (value) => {
   if (!value) {
@@ -94,7 +103,9 @@ const normalizeEstado = (value) => {
   return String(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const capitalize = (value) => {
@@ -105,37 +116,42 @@ const capitalize = (value) => {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 };
 
-const MonthlyBarsChart = ({ series, muted = false }) => {
-  const maxValue = Math.max(...series, 1);
+const MuestrasBarChart = ({ data, muted = false }) => {
+  const fill = muted ? "#cbd5e1" : "#1B3D8F";
 
   return (
-    <div className="space-y-4">
-      <div className="grid h-44 grid-cols-12 items-end gap-2">
-        {series.map((value, index) => {
-          const height = Math.max((value / maxValue) * 100, value > 0 ? 8 : 4);
-
-          return (
-            <div key={MONTH_NAMES[index]} className="flex flex-col items-center gap-2">
-              <div
-                className={[
-                  "w-full rounded-t-xl transition-all duration-300",
-                  muted
-                    ? "bg-gradient-to-b from-slate-300 to-slate-400"
-                    : "bg-gradient-to-b from-[#1B3D8F] to-[#2550b8]",
-                ].join(" ")}
-                style={{ height: `${height}%` }}
-                aria-label={`${MONTH_NAMES[index]}: ${value}`}
-              />
-              <span className="text-[11px] font-semibold text-slate-500">{MONTH_NAMES[index]}</span>
-            </div>
-          );
-        })}
-      </div>
+    <div className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            interval={0}
+            tick={{ fontSize: 10, fill: "#64748b" }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 10, fill: "#94a3b8" }}
+          />
+          <Tooltip
+            cursor={{ fill: "rgba(148, 163, 184, 0.18)" }}
+            contentStyle={{
+              borderRadius: 12,
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
+              fontSize: 12,
+            }}
+          />
+          <Bar dataKey="value" fill={fill} radius={[10, 10, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 };
 
-const TwoLineChart = ({ firstSeries, secondSeries, muted = false }) => {
+const TwoLineChart = ({ firstSeries, secondSeries, firstLabel, secondLabel, muted = false }) => {
   const width = 420;
   const height = 170;
   const padding = 20;
@@ -183,14 +199,37 @@ const TwoLineChart = ({ firstSeries, secondSeries, muted = false }) => {
       </svg>
       <div className="flex flex-wrap gap-4 text-xs font-semibold uppercase tracking-[0.08em]">
         <span className={muted ? "text-slate-500" : "text-[#1B3D8F]"}>
-          Muestras presentadas
+          {firstLabel || "Muestras presentadas"}
         </span>
         <span className={muted ? "text-slate-500" : "text-[#2f63da]"}>
-          Muestras vendidas
+          {secondLabel || "Muestras vendidas"}
         </span>
       </div>
     </div>
   );
+};
+
+const fetchAllMuestras = async () => {
+  let page = 1;
+  let totalPages = 1;
+  const allItems = [];
+
+  while (page <= totalPages) {
+    const payload = await api.get(
+      `${ENDPOINTS.muestras}?page=${page}&limit=${MUESTRAS_PAGE_LIMIT}`,
+    );
+    const items = toCollection(payload);
+    allItems.push(...items);
+
+    totalPages = Number(payload?.totalPages || 1);
+    if (!items.length) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return allItems;
 };
 
 const InventoryBalanceChart = ({ entradas, salidas, muted = false }) => {
@@ -336,6 +375,7 @@ const CACHE_FRESHNESS_MS = 1000 * 120; // 2 minutos
 export const DashboardPage = () => {
   const [loading, setLoading] = useState(!globalDashboardCache);
   const [error, setError] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
@@ -362,7 +402,7 @@ export const DashboardPage = () => {
     try {
       const [muestras, presentaciones, producciones, movimientos, clientes] =
         await Promise.all([
-          api.get(ENDPOINTS.muestras),
+          fetchAllMuestras(),
           api.get(ENDPOINTS.presentaciones),
           api.get(ENDPOINTS.producciones),
           api.get(ENDPOINTS.movimientosInventario),
@@ -393,14 +433,103 @@ export const DashboardPage = () => {
     load();
   }, []);
 
+  const years = useMemo(() => {
+    const yearSet = new Set();
+    for (const muestra of data.muestras) {
+      const created = toDate(
+        muestra.fechaelaboracion ??
+          muestra.fechaElaboracion ??
+          muestra.createdAt ??
+          muestra.createdat ??
+          muestra.fecha ??
+          muestra.fechaCreacion,
+      );
+      if (created) {
+        yearSet.add(created.getFullYear());
+      }
+    }
+
+    return Array.from(yearSet).sort((a, b) => b - a);
+  }, [data.muestras]);
+
+  const dateDiagnostics = useMemo(() => {
+    let parsedDates = 0;
+    const samples = [];
+
+    for (const muestra of data.muestras) {
+      const rawDate =
+        muestra.fechaelaboracion ??
+        muestra.fechaElaboracion ??
+        muestra.createdAt ??
+        muestra.createdat ??
+        muestra.fecha ??
+        muestra.fechaCreacion;
+      const created = toDate(rawDate);
+      if (created) {
+        parsedDates += 1;
+      } else if (samples.length < 3 && rawDate) {
+        samples.push(String(rawDate));
+      }
+    }
+
+    return {
+      parsedDates,
+      total: data.muestras.length,
+      samples,
+    };
+  }, [data.muestras]);
+
   const stats = useMemo(() => {
-    const totalMuestras = data.muestras.length;
-    const presentadas = data.presentaciones.length;
-    const vendidas = data.producciones.length;
+    const estadoCounts = new Map();
+    const estadoOrder = [
+      "presentada",
+      "aprobada",
+      "en molderia",
+      "en diseno",
+      "pendiente",
+      "en proceso",
+      "en bodega",
+      "en revision",
+    ];
+    const estadoLabels = {
+      presentada: "Presentada",
+      aprobada: "Aprobada",
+      "en molderia": "En molderia",
+      "en diseno": "En diseño",
+      pendiente: "Pendiente",
+      "en proceso": "En proceso",
+      "en bodega": "En bodega",
+      "en revision": "En revisión",
+    };
+
+    const muestrasWithDate = [];
+    for (const muestra of data.muestras) {
+      const created = toDate(
+        muestra.fechaelaboracion ??
+          muestra.fechaElaboracion ??
+          muestra.createdAt ??
+          muestra.createdat ??
+          muestra.fecha ??
+          muestra.fechaCreacion,
+      );
+      if (created) {
+        muestrasWithDate.push({ muestra, created });
+      }
+    }
+
+    const filteredMuestras = selectedYear
+      ? muestrasWithDate.filter(
+          (item) => item.created.getFullYear() === Number(selectedYear),
+        )
+      : muestrasWithDate;
+
+    const totalMuestras = filteredMuestras.length;
+    let presentadas = 0;
+    let aprobadas = 0;
     const anyDataCount =
       totalMuestras +
-      presentadas +
-      vendidas +
+      data.presentaciones.length +
+      data.producciones.length +
       data.movimientos.length +
       data.clientes.length;
 
@@ -421,71 +550,62 @@ export const DashboardPage = () => {
 
     const enBodega = Object.values(stockMap).filter((value) => value > 0).length;
 
-    const tasaAprobacion = totalMuestras
-      ? Math.round((presentadas / totalMuestras) * 100)
-      : 0;
-
-    const currentYear = new Date().getFullYear();
     const monthlyMuestras = [...EMPTY_MONTHLY];
     const monthlyPresentadas = [...EMPTY_MONTHLY];
-    const monthlyVendidas = [...EMPTY_MONTHLY];
+    const monthlyAprobadas = [...EMPTY_MONTHLY];
+    const yearlyMap = new Map();
 
-    for (const muestra of data.muestras) {
-      const created = toDate(
-        muestra.fechaelaboracion ??
-          muestra.fechaElaboracion ??
-          muestra.createdAt ??
-          muestra.createdat ??
-          muestra.fecha ??
-          muestra.fechaCreacion,
-      );
+    for (const item of muestrasWithDate) {
+      const yearKey = item.created.getFullYear();
+      yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
+    }
 
-      if (!created || created.getFullYear() !== currentYear) {
-        continue;
+    for (const item of filteredMuestras) {
+      const { muestra, created } = item;
+      const estadoKey = normalizeEstado(muestra.estado);
+      estadoCounts.set(estadoKey, (estadoCounts.get(estadoKey) || 0) + 1);
+
+      if (estadoKey === "presentada") {
+        presentadas += 1;
+      }
+
+      if (estadoKey === "aprobada") {
+        aprobadas += 1;
       }
 
       monthlyMuestras[created.getMonth()] += 1;
-    }
 
-    for (const presentacion of data.presentaciones) {
-      const created = toDate(presentacion.fecha ?? presentacion.createdat ?? presentacion.createdAt);
-      if (!created || created.getFullYear() !== currentYear) {
-        continue;
+      if (estadoKey === "presentada") {
+        monthlyPresentadas[created.getMonth()] += 1;
       }
-      monthlyPresentadas[created.getMonth()] += 1;
-    }
 
-    for (const produccion of data.producciones) {
-      const created = toDate(
-        produccion.fechaproduccion ?? produccion.fecha ?? produccion.createdat ?? produccion.createdAt,
-      );
-      if (!created || created.getFullYear() !== currentYear) {
-        continue;
+      if (estadoKey === "aprobada") {
+        monthlyAprobadas[created.getMonth()] += 1;
       }
-      monthlyVendidas[created.getMonth()] += 1;
     }
 
-    const estadoMap = new Map();
-    for (const muestra of data.muestras) {
-      const estadoKey = normalizeEstado(muestra.estado);
-      estadoMap.set(estadoKey, (estadoMap.get(estadoKey) || 0) + 1);
-    }
+    const estadoItems = estadoOrder.map((estado) => ({
+      label: estadoLabels[estado] || capitalize(estado),
+      value: estadoCounts.get(estado) || 0,
+    }));
 
-    const estadoItems = Array.from(estadoMap.entries())
-      .map(([estado, value]) => ({ label: capitalize(estado), value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+    for (const [estado, value] of estadoCounts.entries()) {
+      if (!estadoOrder.includes(estado)) {
+        estadoItems.push({ label: capitalize(estado), value });
+      }
+    }
 
     const clienteNameById = new Map(
       data.clientes.map((cliente) => [cliente.id, cliente.nombre || "Cliente"]),
     );
 
     const clienteMap = new Map();
-    for (const muestra of data.muestras) {
-      if (!muestra.clienteid) {
+    for (const item of filteredMuestras) {
+      if (!item.muestra.clienteid) {
         continue;
       }
-      clienteMap.set(muestra.clienteid, (clienteMap.get(muestra.clienteid) || 0) + 1);
+      const id = item.muestra.clienteid;
+      clienteMap.set(id, (clienteMap.get(id) || 0) + 1);
     }
 
     const topClientes = Array.from(clienteMap.entries())
@@ -497,30 +617,50 @@ export const DashboardPage = () => {
       .slice(0, 5);
 
     const hasRealData = anyDataCount > 0;
+    const enBodegaEstado = estadoCounts.get("en bodega") || 0;
+    const otras = Math.max(
+      totalMuestras - presentadas - aprobadas - enBodegaEstado,
+      0,
+    );
+
+    const yearlyMuestras = Array.from(yearlyMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, value]) => ({ label: String(year), value }));
 
     return {
       hasRealData,
       totalMuestras,
       presentadas,
-      vendidas,
-      tasaAprobacion,
+      aprobadas,
+      enBodegaEstado,
+      otras,
       enBodega,
       entradas,
       salidas,
       monthlyMuestras,
       monthlyPresentadas,
-      monthlyVendidas,
+      monthlyAprobadas,
+      yearlyMuestras,
       estadoItems,
       topClientes,
     };
-  }, [data]);
+  }, [data, selectedYear]);
+
+  const monthlyItems = useMemo(
+    () =>
+      stats.monthlyMuestras.map((value, index) => ({
+        label: MONTH_NAMES[index],
+        value,
+      })),
+    [stats.monthlyMuestras],
+  );
 
   const donutData = useMemo(
     () => [
-      { label: "Elaboradas", value: stats.totalMuestras },
       { label: "Presentadas", value: stats.presentadas },
-      { label: "Vendidas", value: stats.vendidas },
-      { label: "En bodega", value: stats.enBodega },
+      { label: "Aprobadas", value: stats.aprobadas },
+      { label: "En bodega", value: stats.enBodegaEstado },
+      { label: "Otras", value: stats.otras },
     ],
     [stats],
   );
@@ -562,7 +702,7 @@ export const DashboardPage = () => {
 
       {!loading && !error && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               value={stats.totalMuestras}
               title="Total Muestras"
@@ -576,14 +716,9 @@ export const DashboardPage = () => {
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.vendidas}
-              title="Vendidas"
-              subtitle="órdenes confirmadas"
-              muted={!stats.hasRealData}
-            />
-            <KpiCard
-              value={`${stats.tasaAprobacion}%`}
-              title="Tasa Aprobación"
+              value={stats.aprobadas}
+              title="Aprobadas"
+              subtitle="total aprobadas"
               muted={!stats.hasRealData}
             />
             <KpiCard
@@ -597,14 +732,45 @@ export const DashboardPage = () => {
           <div className="grid gap-4 lg:grid-cols-3">
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Muestras por mes
+                {selectedYear ? "Muestras por mes" : "Muestras por año"}
               </h3>
               {!stats.hasRealData && <BadgeNoData />}
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                <label className="text-slate-500">Año</label>
+                <select
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(event.target.value)}
+                >
+                  <option value="">Todos los años</option>
+                  {years.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {stats.hasRealData && dateDiagnostics.parsedDates === 0 && (
+                <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <strong>No se pudieron leer fechas de muestras.</strong>
+                  <div>Revisar campos fechaelaboracion/createdAt.</div>
+                  {dateDiagnostics.samples.length > 0 && (
+                    <div className="mt-1">Ejemplos: {dateDiagnostics.samples.join(", ")}</div>
+                  )}
+                </div>
+              )}
               <div className="mt-4">
-                <MonthlyBarsChart
-                  series={stats.monthlyMuestras}
-                  muted={!stats.hasRealData}
-                />
+                {selectedYear ? (
+                  <MuestrasBarChart
+                    data={monthlyItems}
+                    muted={!stats.hasRealData}
+                  />
+                ) : (
+                  <MuestrasBarChart
+                    data={stats.yearlyMuestras}
+                    muted={!stats.hasRealData}
+                  />
+                )}
               </div>
             </article>
 
@@ -620,13 +786,15 @@ export const DashboardPage = () => {
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Presentadas vs vendidas
+                Presentadas vs aprobadas
               </h3>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
                 <TwoLineChart
                   firstSeries={stats.monthlyPresentadas}
-                  secondSeries={stats.monthlyVendidas}
+                  secondSeries={stats.monthlyAprobadas}
+                  firstLabel="Muestras presentadas"
+                  secondLabel="Muestras aprobadas"
                   muted={!stats.hasRealData}
                 />
               </div>
