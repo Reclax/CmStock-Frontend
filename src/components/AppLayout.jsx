@@ -30,6 +30,7 @@ export const AppLayout = () => {
   };
 
   const openQrScanner = () => {
+    setMenuOpen(false);
     navigate("/etiquetas-qr");
   };
 
@@ -176,13 +177,24 @@ export const AppLayout = () => {
               </NavLink>
             ))}
             <div className="h-px bg-white/[0.07] my-2" />
-            <button
-              type="button"
-              onClick={openLogoutConfirm}
-              className="w-full text-left px-3 py-2.5 rounded-[9px] border border-white/15 text-white/65 text-[13px] font-semibold hover:bg-white/[0.07] hover:text-white transition"
-            >
-              Cerrar sesión
-            </button>
+            <div className="flex flex-wrap gap-2 px-3">
+              <button
+                type="button"
+                onClick={openQrScanner}
+                className="inline-flex items-center gap-2 rounded-[9px] border border-white/15 px-3 py-2 text-[13px] font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white"
+              >
+                <FiCamera className="h-4 w-4" />
+                Escanear QR
+              </button>
+              <button
+                type="button"
+                onClick={openLogoutConfirm}
+                className="inline-flex items-center gap-2 rounded-[9px] border border-white/15 px-3 py-2 text-[13px] font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white"
+              >
+                <FiLogOut className="h-4 w-4" />
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         )}
       </header>
