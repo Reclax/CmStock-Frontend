@@ -255,8 +255,8 @@ export const InventarioPage = () => {
     });
 
     return (
-      <article className="panel-card">
-        <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-5 border-b border-slate-100">
           <div className={controlWrapClassName}>
             <FiSearch className="text-slate-500" />
             <input
@@ -272,15 +272,17 @@ export const InventarioPage = () => {
           </div>
         </div>
 
-        <DataGrid
-          columns={columns}
-          rows={state.rows}
-          minWidthClass="min-w-full"
-          containerClassName="shadow-none"
-          {...gridProps}
-        />
+        <div className="p-5">
+          <DataGrid
+            columns={columns}
+            rows={state.rows}
+            minWidthClass="min-w-full"
+            containerClassName="shadow-none"
+            {...gridProps}
+          />
+        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="border-t border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-slate-500">Page</span>
 
@@ -396,39 +398,58 @@ export const InventarioPage = () => {
   ];
 
   return (
-    <section>
-      <header className="section-header">
-        <div>
-          <h1>Inventario y bodega</h1>
-          <p>Stock por muestra, ubicacion e historial.</p>
+    <section className="space-y-5">
+      <header className="relative px-1 py-4 border-b border-slate-200">
+        <div className="flex flex-col items-center text-center gap-2">
+          <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
+            Inventario y bodega
+          </h1>
+          <p className="text-sm text-slate-500 max-w-lg">
+            Stock por muestra, ubicación e historial de movimientos.
+          </p>
         </div>
-
-        <button type="button" className="primary-btn" onClick={openCreate}>
-          <FiPlus /> Nuevo movimiento
+        <button
+          type="button"
+          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+          onClick={openCreate}
+        >
+          <FiPlus className="h-4 w-4" /> Nuevo movimiento
         </button>
       </header>
 
-      <div className="tabs-row">
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         <button
           type="button"
-          className={tab === "stock" ? "is-active" : ""}
           onClick={() => setTab("stock")}
+          className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+            tab === "stock"
+              ? "bg-white text-[#1B3D8F] shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
           Stock
         </button>
         <button
           type="button"
-          className={tab === "historial" ? "is-active" : ""}
           onClick={() => setTab("historial")}
+          className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+            tab === "historial"
+              ? "bg-white text-[#1B3D8F] shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
           Historial
         </button>
         <button
           type="button"
-          className={tab === "ubicacion" ? "is-active" : ""}
           onClick={() => setTab("ubicacion")}
+          className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+            tab === "ubicacion"
+              ? "bg-white text-[#1B3D8F] shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          Por ubicacion
+          Por ubicación
         </button>
       </div>
 

@@ -669,24 +669,21 @@ export const DashboardPage = () => {
 
   return (
     <section className="space-y-5">
-      <header className="relative overflow-hidden rounded-[30px] border border-[#d9e5ff] bg-gradient-to-br from-[#14306d] via-[#1B3D8F] to-[#2f63da] p-6 text-white shadow-[0_20px_45px_rgba(16,43,96,0.34)] sm:p-7">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border border-white/20" />
-        <div className="pointer-events-none absolute -bottom-16 right-20 h-44 w-44 rounded-full border border-white/10" />
-
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-white/75">
-            Resumen del año en curso · {currentDateLabel}
+      <header className="relative px-1 py-4 border-b border-slate-200">
+        <div className="flex flex-col items-center text-center gap-2">
+          <p className="text-xs text-slate-500">
+            {currentDateLabel}
           </p>
-          <h1 className="mt-3 font-serif text-[clamp(2rem,2.8vw,2.9rem)] leading-[1.02] tracking-[-0.03em] text-white">
+          <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Dashboard estratégico
           </h1>
-          <p className="mt-2 max-w-3xl text-white/80">
+          <p className="text-sm text-slate-500 max-w-lg">
             Seguimiento de muestras, presentación, ventas y estado de bodega con lectura ejecutiva.
           </p>
         </div>
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:-translate-y-px hover:bg-white/20"
+          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
           onClick={() => load(true)}
         >
           Actualizar

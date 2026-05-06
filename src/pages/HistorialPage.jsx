@@ -5,12 +5,14 @@ import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
+import Select from "react-select";
 import {
   FiChevronsLeft,
   FiChevronLeft,
   FiChevronRight,
   FiChevronsRight,
   FiAlertTriangle,
+  FiPlus,
 } from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
 
@@ -219,47 +221,55 @@ export const HistorialPage = () => {
   };
 
   return (
-    <section>
-      <header className="section-header">
-        <div>
-          <h1>Historial y trazabilidad</h1>
-          <p>
-            Control de presentaciones, produccion y fases del flujo de muestra.
+    <section className="space-y-5">
+      <header className="relative px-1 py-4 border-b border-slate-200">
+        <div className="flex flex-col items-center text-center gap-2">
+          <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
+            Historial y trazabilidad
+          </h1>
+          <p className="text-sm text-slate-500 max-w-lg">
+            Control de presentaciones, producción y fases del flujo de muestra.
           </p>
         </div>
         <button
           type="button"
-          className="primary-btn"
+          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
           onClick={() => openForm()}
         >
-          Nuevo registro
+          <FiPlus className="h-4 w-4" /> Nuevo registro
         </button>
       </header>
 
-      <div className="tabs-row">
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {tabs.map((item) => (
           <button
             key={item.key}
             type="button"
-            className={tab === item.key ? "tab-btn tab-btn-active" : "tab-btn"}
             onClick={() => setTab(item.key)}
+            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+              tab === item.key
+                ? "bg-white text-[#1B3D8F] shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
             {item.label}
           </button>
         ))}
       </div>
 
-      <article className="panel-card">
-        <DataGrid
-          columns={columnsByTab[tab]}
-          rows={paginatedRows}
-          onEdit={openForm}
-          onDelete={(row) => setRowToDelete(row)}
-          minWidthClass="min-w-full"
-          containerClassName="shadow-none"
-        />
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-5">
+          <DataGrid
+            columns={columnsByTab[tab]}
+            rows={paginatedRows}
+            onEdit={openForm}
+            onDelete={(row) => setRowToDelete(row)}
+            minWidthClass="min-w-full"
+            containerClassName="shadow-none"
+          />
+        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="border-t border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-slate-500">Page</span>
 
@@ -373,299 +383,467 @@ export const HistorialPage = () => {
           title={editing ? "Editar registro" : "Nuevo registro"}
           onClose={closeForm}
         >
-          <form className="form-grid two-columns" onSubmit={onSubmit}>
+          <form onSubmit={onSubmit} className="space-y-6">
             {tab === "presentaciones" && (
-              <>
-                <label>
-                  Muestra
-                  <select
-                    required
-                    value={form.muestraid || ""}
-                    onChange={(event) =>
-                      onChange("muestraid", event.target.value)
-                    }
-                  >
-                    <option value="">Selecciona</option>
-                    {muestras.items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.referencia}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Cliente
-                  <select
-                    required
-                    value={form.clienteid || ""}
-                    onChange={(event) =>
-                      onChange("clienteid", event.target.value)
-                    }
-                  >
-                    <option value="">Selecciona</option>
-                    {catalogs.clientes.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Fecha
-                  <input
-                    type="date"
-                    required
-                    value={toDateInput(form.fecha)}
-                    onChange={(event) => onChange("fecha", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Resultado
-                  <input
-                    required
-                    value={form.resultado || ""}
-                    onChange={(event) =>
-                      onChange("resultado", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Pares aprobados
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.paresaprobados || ""}
-                    onChange={(event) =>
-                      onChange("paresaprobados", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Pares rechazados
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.paresrechazados || ""}
-                    onChange={(event) =>
-                      onChange("paresrechazados", event.target.value)
-                    }
-                  />
-                </label>
-                <label className="inline-check">
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <Select
+                      options={muestras.items.map((item) => ({
+                        value: item.id,
+                        label: item.referencia,
+                      }))}
+                      value={
+                        form.muestraid
+                          ? {
+                              value: form.muestraid,
+                              label:
+                                muestras.items.find(
+                                  (m) => m.id === form.muestraid,
+                                )?.referencia || form.muestraid,
+                            }
+                          : null
+                      }
+                      onChange={(option) =>
+                        onChange("muestraid", option?.value || "")
+                      }
+                      isClearable
+                      isSearchable
+                      placeholder="Buscar por referencia..."
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          borderRadius: "0.5rem",
+                          borderColor: "#cbd5e1",
+                          fontSize: "0.875rem",
+                          minHeight: "2.625rem",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "#1B3D8F"
+                            : state.isFocused
+                              ? "#f1f5f9"
+                              : "white",
+                          color: state.isSelected ? "white" : "#1f2937",
+                          cursor: "pointer",
+                        }),
+                        menuList: (base) => ({
+                          ...base,
+                          maxHeight: "200px",
+                        }),
+                      }}
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Cliente *</span>
+                    <select
+                      required
+                      value={form.clienteid || ""}
+                      onChange={(event) =>
+                        onChange("clienteid", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    >
+                      <option value="">Selecciona</option>
+                      {catalogs.clientes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fecha)}
+                      onChange={(event) => onChange("fecha", event.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Resultado *</span>
+                    <select
+                      required
+                      value={form.resultado || ""}
+                      onChange={(event) =>
+                        onChange("resultado", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    >
+                      <option value="">Selecciona</option>
+                      <option value="Aprobado">Aprobado</option>
+                      <option value="Rechazado">Rechazado</option>
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="Parcial">Parcial</option>
+                      <option value="Revisar">Revisar</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Pares aprobados</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={form.paresaprobados || ""}
+                      onChange={(event) =>
+                        onChange("paresaprobados", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Pares rechazados</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={form.paresrechazados || ""}
+                      onChange={(event) =>
+                        onChange("paresrechazados", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+                </div>
+
+                <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={Boolean(form.derivoproduccion)}
                     onChange={(event) =>
                       onChange("derivoproduccion", event.target.checked)
                     }
+                    className="h-4 w-4 rounded border-slate-300 text-[#1B3D8F]"
                   />
-                  Derivo en produccion
+                  <span className="text-sm font-medium text-slate-700">Derivó en producción</span>
                 </label>
-                <label className="full-width">
-                  Observaciones
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-semibold text-slate-700">Observaciones</span>
                   <textarea
                     rows="3"
+                    placeholder="Notas o comentarios adicionales..."
                     value={form.observaciones || ""}
                     onChange={(event) =>
                       onChange("observaciones", event.target.value)
                     }
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                   />
                 </label>
-              </>
+              </div>
             )}
 
             {tab === "producciones" && (
-              <>
-                <label>
-                  Muestra
-                  <select
-                    required
-                    value={form.muestraid || ""}
-                    onChange={(event) =>
-                      onChange("muestraid", event.target.value)
-                    }
-                  >
-                    <option value="">Selecciona</option>
-                    {muestras.items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.referencia}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Cliente
-                  <select
-                    required
-                    value={form.clienteid || ""}
-                    onChange={(event) =>
-                      onChange("clienteid", event.target.value)
-                    }
-                  >
-                    <option value="">Selecciona</option>
-                    {catalogs.clientes.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Orden produccion
-                  <input
-                    required
-                    value={form.ordennumero || ""}
-                    onChange={(event) =>
-                      onChange("ordennumero", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Pares producidos
-                  <input
-                    required
-                    type="number"
-                    min="1"
-                    value={form.paresproducidos || ""}
-                    onChange={(event) =>
-                      onChange("paresproducidos", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Fecha produccion
-                  <input
-                    required
-                    type="date"
-                    value={toDateInput(form.fechaproduccion)}
-                    onChange={(event) =>
-                      onChange("fechaproduccion", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Mes
-                  <input
-                    required
-                    value={form.mes || ""}
-                    onChange={(event) => onChange("mes", event.target.value)}
-                  />
-                </label>
-              </>
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <Select
+                      options={muestras.items.map((item) => ({
+                        value: item.id,
+                        label: item.referencia,
+                      }))}
+                      value={
+                        form.muestraid
+                          ? {
+                              value: form.muestraid,
+                              label:
+                                muestras.items.find(
+                                  (m) => m.id === form.muestraid,
+                                )?.referencia || form.muestraid,
+                            }
+                          : null
+                      }
+                      onChange={(option) =>
+                        onChange("muestraid", option?.value || "")
+                      }
+                      isClearable
+                      isSearchable
+                      placeholder="Buscar por referencia..."
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          borderRadius: "0.5rem",
+                          borderColor: "#cbd5e1",
+                          fontSize: "0.875rem",
+                          minHeight: "2.625rem",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "#1B3D8F"
+                            : state.isFocused
+                              ? "#f1f5f9"
+                              : "white",
+                          color: state.isSelected ? "white" : "#1f2937",
+                          cursor: "pointer",
+                        }),
+                        menuList: (base) => ({
+                          ...base,
+                          maxHeight: "200px",
+                        }),
+                      }}
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Cliente *</span>
+                    <select
+                      required
+                      value={form.clienteid || ""}
+                      onChange={(event) =>
+                        onChange("clienteid", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    >
+                      <option value="">Selecciona</option>
+                      {catalogs.clientes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Orden producción *</span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: OP-2026-001"
+                      value={form.ordennumero || ""}
+                      onChange={(event) =>
+                        onChange("ordennumero", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Pares producidos *</span>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="1"
+                      value={form.paresproducidos || ""}
+                      onChange={(event) =>
+                        onChange("paresproducidos", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha producción *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fechaproduccion)}
+                      onChange={(event) =>
+                        onChange("fechaproduccion", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Mes *</span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Mayo 2026"
+                      value={form.mes || ""}
+                      onChange={(event) => onChange("mes", event.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+                </div>
+              </div>
             )}
 
             {tab === "trazabilidades" && (
-              <>
-                <label>
-                  Muestra
-                  <select
-                    required
-                    value={form.muestraid || ""}
-                    onChange={(event) =>
-                      onChange("muestraid", event.target.value)
-                    }
-                  >
-                    <option value="">Selecciona</option>
-                    {muestras.items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.referencia}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Disenador ID
-                  <input
-                    list="hist-disenadores"
-                    required
-                    value={form.disenadorid || ""}
-                    onChange={(event) =>
-                      onChange("disenadorid", event.target.value)
-                    }
-                  />
-                  <datalist id="hist-disenadores">
-                    {disenadorIds.map((item) => (
-                      <option key={item} value={item} />
-                    ))}
-                  </datalist>
-                </label>
-                <label>
-                  Modelador ID
-                  <input
-                    list="hist-modeladores"
-                    required
-                    value={form.modeladorid || ""}
-                    onChange={(event) =>
-                      onChange("modeladorid", event.target.value)
-                    }
-                  />
-                  <datalist id="hist-modeladores">
-                    {modeladorIds.map((item) => (
-                      <option key={item} value={item} />
-                    ))}
-                  </datalist>
-                </label>
-                <label>
-                  Fecha requerimiento
-                  <input
-                    required
-                    type="date"
-                    value={toDateInput(form.fecharequerimiento)}
-                    onChange={(event) =>
-                      onChange("fecharequerimiento", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Fecha diseno
-                  <input
-                    required
-                    type="date"
-                    value={toDateInput(form.fechadiseno)}
-                    onChange={(event) =>
-                      onChange("fechadiseno", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Fecha molderia
-                  <input
-                    required
-                    type="date"
-                    value={toDateInput(form.fechamolderia)}
-                    onChange={(event) =>
-                      onChange("fechamolderia", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Fecha registro
-                  <input
-                    required
-                    type="date"
-                    value={toDateInput(form.fecharegistro)}
-                    onChange={(event) =>
-                      onChange("fecharegistro", event.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Tiempos
-                  <input
-                    value={form.tiempos || ""}
-                    onChange={(event) =>
-                      onChange("tiempos", event.target.value)
-                    }
-                  />
-                </label>
-              </>
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <Select
+                      options={muestras.items.map((item) => ({
+                        value: item.id,
+                        label: item.referencia,
+                      }))}
+                      value={
+                        form.muestraid
+                          ? {
+                              value: form.muestraid,
+                              label:
+                                muestras.items.find(
+                                  (m) => m.id === form.muestraid,
+                                )?.referencia || form.muestraid,
+                            }
+                          : null
+                      }
+                      onChange={(option) =>
+                        onChange("muestraid", option?.value || "")
+                      }
+                      isClearable
+                      isSearchable
+                      placeholder="Buscar por referencia..."
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          borderRadius: "0.5rem",
+                          borderColor: "#cbd5e1",
+                          fontSize: "0.875rem",
+                          minHeight: "2.625rem",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "#1B3D8F"
+                            : state.isFocused
+                              ? "#f1f5f9"
+                              : "white",
+                          color: state.isSelected ? "white" : "#1f2937",
+                          cursor: "pointer",
+                        }),
+                        menuList: (base) => ({
+                          ...base,
+                          maxHeight: "200px",
+                        }),
+                      }}
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Diseñador ID *</span>
+                    <input
+                      list="hist-disenadores"
+                      type="text"
+                      required
+                      placeholder="ID del diseñador"
+                      value={form.disenadorid || ""}
+                      onChange={(event) =>
+                        onChange("disenadorid", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                    <datalist id="hist-disenadores">
+                      {disenadorIds.map((item) => (
+                        <option key={item} value={item} />
+                      ))}
+                    </datalist>
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Modelador ID *</span>
+                    <input
+                      list="hist-modeladores"
+                      type="text"
+                      required
+                      placeholder="ID del modelador"
+                      value={form.modeladorid || ""}
+                      onChange={(event) =>
+                        onChange("modeladorid", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                    <datalist id="hist-modeladores">
+                      {modeladorIds.map((item) => (
+                        <option key={item} value={item} />
+                      ))}
+                    </datalist>
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha requerimiento *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fecharequerimiento)}
+                      onChange={(event) =>
+                        onChange("fecharequerimiento", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha diseño *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fechadiseno)}
+                      onChange={(event) =>
+                        onChange("fechadiseno", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha moldería *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fechamolderia)}
+                      onChange={(event) =>
+                        onChange("fechamolderia", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Fecha registro *</span>
+                    <input
+                      type="date"
+                      required
+                      value={toDateInput(form.fecharegistro)}
+                      onChange={(event) =>
+                        onChange("fecharegistro", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+
+                  <label className="col-span-2 flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-slate-700">Tiempos</span>
+                    <input
+                      type="text"
+                      placeholder="Ej: 5 días"
+                      value={form.tiempos || ""}
+                      onChange={(event) =>
+                        onChange("tiempos", event.target.value)
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                    />
+                  </label>
+                </div>
+              </div>
             )}
 
-            <div className="form-actions full-width">
-              <button type="button" className="ghost-btn" onClick={closeForm}>
+            <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+              >
                 Cancelar
               </button>
-              <button type="submit" className="primary-btn">
+              <button
+                type="submit"
+                className="rounded-lg bg-[#1B3D8F] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+              >
                 Guardar
               </button>
             </div>

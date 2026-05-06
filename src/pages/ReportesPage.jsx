@@ -412,33 +412,22 @@ export const ReportesPage = () => {
 
   return (
     <section className="space-y-6">
-      <header className="relative overflow-hidden rounded-[28px] border border-[#dbe6ff] bg-gradient-to-br from-[#0f2b63] via-[#1B3D8F] to-[#3a6bdb] p-6 text-white shadow-[0_20px_45px_rgba(16,43,96,0.32)]">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full border border-white/15" />
-        <div className="pointer-events-none absolute -bottom-20 right-16 h-52 w-52 rounded-full border border-white/10" />
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-white/70">
-              Centro de control
-            </p>
-            <h1
-              className="mt-2 font-serif text-[clamp(2rem,2.6vw,2.8rem)] leading-[1.05] tracking-[-0.02em]"
-              style={{ fontFamily: '"Playfair Display", "Georgia", serif' }}
-            >
-              Reportes y estadisticas
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/80">
-              Panel ejecutivo con filtros, indicadores operativos y exportaciones listas para analisis.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:-translate-y-px hover:bg-white/20"
-            onClick={load}
-          >
-            Actualizar
-          </button>
+      <header className="relative px-1 py-4 border-b border-slate-200">
+        <div className="flex flex-col items-center text-center gap-2">
+          <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
+            Reportes y estadísticas
+          </h1>
+          <p className="text-sm text-slate-500 max-w-lg">
+            Panel ejecutivo con filtros, indicadores operativos y exportaciones listas para análisis.
+          </p>
         </div>
+        <button
+          type="button"
+          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+          onClick={load}
+        >
+          Actualizar
+        </button>
       </header>
 
       <div className="rounded-[26px] border border-slate-200 bg-white/80 p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
