@@ -283,34 +283,44 @@ export const AdministracionPage = () => {
   // UI
   // =========================
   return (
-    <section>
-      <header className="section-header">
-        <div>
-          <h1>Administracion</h1>
-          <p>
-            CRUDs del sistema (clientes, molderias, ubicaciones y usuarios).
+    <section className="space-y-5">
+      <header className="relative px-1 py-4 border-b border-slate-200">
+        <div className="flex flex-col items-center text-center gap-2">
+          <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
+            Administración
+          </h1>
+          <p className="text-sm text-slate-500 max-w-lg">
+            CRUDs del sistema: clientes, molderías, ubicaciones y usuarios.
           </p>
         </div>
-        <button type="button" className="primary-btn" onClick={openNew}>
-          <FiPlus /> Nuevo {tabLabel}
+        <button
+          type="button"
+          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+          onClick={openNew}
+        >
+          <FiPlus className="h-4 w-4" /> Nuevo {tabLabel}
         </button>
       </header>
 
-      <div className="tabs-row">
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
-            className={tab === t.key ? "is-active" : ""}
             onClick={() => switchTab(t.key)}
+            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+              tab === t.key
+                ? "bg-white text-[#1B3D8F] shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      <article className="panel-card">
-        <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+      <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-5 border-b border-slate-100">
           <div className={controlWrapClassName}>
             <FiSearch className="text-slate-500" />
             <input
@@ -326,16 +336,18 @@ export const AdministracionPage = () => {
           </div>
         </div>
 
-        <DataGrid
-          columns={columnsByTab[tab]}
-          rows={paginatedRowsSafe}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          minWidthClass="min-w-full"
-          containerClassName="shadow-none"
-        />
+        <div className="p-5">
+          <DataGrid
+            columns={columnsByTab[tab]}
+            rows={paginatedRowsSafe}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            minWidthClass="min-w-full"
+            containerClassName="shadow-none"
+          />
+        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="border-t border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-slate-500">Page</span>
 
