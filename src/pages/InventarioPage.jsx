@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  FiAlertTriangle,
+  FiArrowDown,
+  FiArrowUp,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight,
+  FiPlus,
+  FiSearch,
+} from "react-icons/fi";
+import Select from "react-select";
 import { ENDPOINTS } from "../api/endpoints";
 import { DataGrid } from "../components/DataGrid";
 import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
-import Select from "react-select";
-import {
-  FiChevronsLeft,
-  FiChevronLeft,
-  FiChevronRight,
-  FiChevronsRight,
-  FiChevronDown,
-  FiPlus,
-  FiSearch,
-  FiAlertTriangle,
-  FiArrowUp,
-  FiArrowDown,
-} from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
 
 const PAGE_SIZE = 15;
@@ -68,9 +68,7 @@ const StockBadge = ({ value }) => {
   else if (value <= 5) color = "bg-amber-100 text-amber-700";
 
   return (
-    <span className={`px-2 py-1 text-xs rounded-full ${color}`}>
-      {value}
-    </span>
+    <span className={`px-2 py-1 text-xs rounded-full ${color}`}>{value}</span>
   );
 };
 
@@ -91,10 +89,7 @@ const useSearchAndPagination = (data) => {
     if (!search) return data;
 
     return data.filter((row) =>
-      Object.values(row)
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase())
+      Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase()),
     );
   }, [data, search]);
 
@@ -155,8 +150,7 @@ export const InventarioPage = () => {
       id: m.id,
       referencia: m.referencia,
       modelo: m.modelo,
-      ubicacion:
-        catalogs.ubicacionesMap[m.ubicacionid] || m.ubicacionid,
+      ubicacion: catalogs.ubicacionesMap[m.ubicacionid] || m.ubicacionid,
       stock: map[m.id] || 0,
     }));
   }, [movimientos.items, muestras.items, catalogs.ubicacionesMap]);
@@ -166,15 +160,14 @@ export const InventarioPage = () => {
       muestras.items.map((m) => [
         m.id,
         `${m.referencia}${m.modelo ? ` · ${m.modelo}` : ""}`,
-      ])
+      ]),
     );
   }, [muestras.items]);
 
   const stockByUbicacion = useMemo(() => {
     const map = {};
     for (const item of stockByMuestra) {
-      map[item.ubicacion] =
-        (map[item.ubicacion] || 0) + item.stock;
+      map[item.ubicacion] = (map[item.ubicacion] || 0) + item.stock;
     }
     return Object.entries(map).map(([ubicacion, stock]) => ({
       id: ubicacion,
@@ -465,7 +458,6 @@ export const InventarioPage = () => {
       {tab === "stock" &&
         renderTable(stockState, [
           { key: "referencia", label: "Referencia" },
-          { key: "modelo", label: "Modelo" },
           {
             key: "ubicacion",
             label: "Ubicacion",
@@ -499,11 +491,14 @@ export const InventarioPage = () => {
         ])}
 
       {modalOpen && (
-          <Modal
+        <Modal
           title={editing ? "Editar movimiento" : "Nuevo movimiento"}
           onClose={closeModal}
         >
-          <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form
+            onSubmit={submit}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          >
             <div className="full-width sm:col-span-2">
               <label className={labelClassName} htmlFor="inv-muestra">
                 Muestra
@@ -515,10 +510,16 @@ export const InventarioPage = () => {
                 }))}
                 value={
                   form.muestraid
-                    ? { value: form.muestraid, label: muestraLabelById[form.muestraid] || form.muestraid }
+                    ? {
+                        value: form.muestraid,
+                        label:
+                          muestraLabelById[form.muestraid] || form.muestraid,
+                      }
                     : null
                 }
-                onChange={(option) => onChange("muestraid", option?.value || "")}
+                onChange={(option) =>
+                  onChange("muestraid", option?.value || "")
+                }
                 isClearable
                 isSearchable
                 placeholder="Buscar por referencia..."
@@ -532,7 +533,11 @@ export const InventarioPage = () => {
                   }),
                   option: (base, state) => ({
                     ...base,
-                    backgroundColor: state.isSelected ? "#1B3D8F" : state.isFocused ? "#f1f5f9" : "white",
+                    backgroundColor: state.isSelected
+                      ? "#1B3D8F"
+                      : state.isFocused
+                        ? "#f1f5f9"
+                        : "white",
                     color: state.isSelected ? "white" : "#1f2937",
                     cursor: "pointer",
                   }),
@@ -646,13 +651,20 @@ export const InventarioPage = () => {
       )}
 
       {rowToDelete && (
-        <Modal title="Confirmar eliminacion" onClose={() => setRowToDelete(null)}>
+        <Modal
+          title="Confirmar eliminacion"
+          onClose={() => setRowToDelete(null)}
+        >
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
               <FiAlertTriangle className="mt-0.5" />
               <div>
-                <p className="m-0 font-semibold">Esta accion no se puede deshacer.</p>
-                <p className="m-0 text-sm">Se eliminara el movimiento seleccionado.</p>
+                <p className="m-0 font-semibold">
+                  Esta accion no se puede deshacer.
+                </p>
+                <p className="m-0 text-sm">
+                  Se eliminara el movimiento seleccionado.
+                </p>
               </div>
             </div>
 
@@ -664,7 +676,11 @@ export const InventarioPage = () => {
               >
                 Cancelar
               </button>
-              <button type="button" className="secondary-btn" onClick={deleteRow}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={deleteRow}
+              >
                 Eliminar
               </button>
             </div>
