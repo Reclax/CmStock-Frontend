@@ -1,6 +1,7 @@
 export const ENDPOINTS = {
   auth: "/auth",
   muestras: "/muestras",
+  variaciones: "/variaciones",
   clientes: "/clientes",
   usuarios: "/usuarios",
   molderias: "/molderias",
