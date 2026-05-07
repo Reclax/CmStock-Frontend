@@ -145,6 +145,7 @@ export const MuestrasPage = () => {
     ubicacionid: "",
     licenciado: "",
     dima: "",
+    molderia: "",
     molderiaid: "",
     disenadorid: "",
     from: "",
@@ -222,7 +223,10 @@ export const MuestrasPage = () => {
         params.set("clienteid", activeFilters.clienteid);
       if (activeFilters.ubicacionid)
         params.set("ubicacionid", activeFilters.ubicacionid);
-      if (activeFilters.molderiaid)
+      // molderia: texto libre tiene prioridad; si no, usar ID exacto
+      if (activeFilters.molderia)
+        params.set("molderia", activeFilters.molderia);
+      else if (activeFilters.molderiaid)
         params.set("molderiaid", activeFilters.molderiaid);
       if (activeFilters.disenadorid)
         params.set("disenadorid", activeFilters.disenadorid);
@@ -381,6 +385,7 @@ export const MuestrasPage = () => {
       ubicacionid: "",
       licenciado: "",
       dima: "",
+      molderia: "",
       molderiaid: "",
       disenadorid: "",
       from: "",
@@ -809,20 +814,14 @@ export const MuestrasPage = () => {
                 </option>
               ))}
             </select>
-            <select
+            <input
               className={inputCls}
-              value={filters.molderiaid}
+              placeholder="Moldería (ej: sueca, hormiga...)"
+              value={filters.molderia}
               onChange={(e) =>
-                setFilters((p) => ({ ...p, molderiaid: e.target.value }))
+                setFilters((p) => ({ ...p, molderia: e.target.value, molderiaid: "" }))
               }
-            >
-              <option value="">Todas las molderías</option>
-              {catalogs.molderias.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre}
-                </option>
-              ))}
-            </select>
+            />
             <select
               className={inputCls}
               value={filters.ubicacionid}
@@ -1517,17 +1516,6 @@ export const MuestrasPage = () => {
                   ? [{ label: "Variación", value: "Sí" }]
                   : []),
                 { label: "Moldería", value: safe(catalogs.molderiasMap?.[viewRow.molderiaid] ?? viewRow.molderia) },
-                {
-                  label: "Estado",
-                  value: <EstadoBadge estado={viewRow.estado} />,
-                },
-                {
-                  label: "Moldería",
-                  value: safe(
-                    catalogs.molderiasMap?.[viewRow.molderiaid] ??
-                      viewRow.molderia,
-                  ),
-                },
                 { label: "Pares elaborados", value: viewRow.pareselaborados },
                 { label: "Fecha elaboración", value: viewRow.fechaelaboracion?.slice(0, 10) },
                 { label: "Cliente", value: safe(catalogs.clientesMap?.[viewRow.clienteid] ?? viewRow.clienteid) },
@@ -1538,48 +1526,10 @@ export const MuestrasPage = () => {
                     ? viewRow.disenador.nombre
                     : typeof viewRow.disenador === "string" && viewRow.disenador.trim() !== ""
                       ? viewRow.disenador
-                      : safe(catalogs.disenadoresMap?.[viewRow.disenadorid] ?? viewRow.disenadorid)
-                {
-                  label: "Fecha elaboración",
-                  value: viewRow.fechaelaboracion?.slice(0, 10),
-                },
-                {
-                  label: "Cliente",
-                  value: safe(
-                    catalogs.clientesMap?.[viewRow.clienteid] ??
-                      viewRow.clienteid,
-                  ),
-                },
-                {
-                  label: "Ubicación",
-                  value: safe(
-                    catalogs.ubicacionesMap?.[viewRow.ubicacionid] ??
-                      viewRow.ubicacionid,
-                  ),
-                },
-                {
-                  label: "Diseñador",
-                  value:
-                    typeof viewRow.disenador === "object" &&
-                    viewRow.disenador?.nombre
-                      ? viewRow.disenador.nombre
-                      : typeof viewRow.disenador === "string" &&
-                          viewRow.disenador.trim() !== ""
-                        ? viewRow.disenador
-                        : safe(
-                            catalogs.disenadoresMap?.[viewRow.disenadorid] ??
-                              viewRow.disenadorid,
-                          ),
+                      : safe(catalogs.disenadoresMap?.[viewRow.disenadorid] ?? viewRow.disenadorid),
                 },
                 { label: "DIMA", value: viewRow.dima || "—" },
-                {
-                  label: "Licencia",
-                  value: viewRow.licencia || "—"
-                },
-                {
-                  label: "Licenciado",
-                  value: viewRow.licenciado ? "Sí" : "No",
-                },
+                { label: "Licencia", value: viewRow.licencia || "—" },
               ].map(({ label, value }) => (
                 <div
                   key={label}
