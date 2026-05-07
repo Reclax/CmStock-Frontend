@@ -222,7 +222,7 @@ export const HistorialPage = () => {
 
   return (
     <section className="space-y-5">
-      <header className="relative px-1 py-4 border-b border-slate-200">
+      <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Historial y trazabilidad
@@ -231,13 +231,15 @@ export const HistorialPage = () => {
             Control de presentaciones, producción y fases del flujo de muestra.
           </p>
         </div>
-        <button
-          type="button"
-          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-          onClick={() => openForm()}
-        >
-          <FiPlus className="h-4 w-4" /> Nuevo registro
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+            onClick={() => openForm()}
+          >
+            <FiPlus className="h-4 w-4" /> Nuevo registro
+          </button>
+        </div>
       </header>
 
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -386,7 +388,7 @@ export const HistorialPage = () => {
           <form onSubmit={onSubmit} className="space-y-6">
             {tab === "presentaciones" && (
               <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
                     <span className="text-sm font-semibold text-slate-700">Muestra *</span>
                     <Select
@@ -544,7 +546,7 @@ export const HistorialPage = () => {
 
             {tab === "producciones" && (
               <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
                     <span className="text-sm font-semibold text-slate-700">Muestra *</span>
                     <Select
@@ -673,7 +675,7 @@ export const HistorialPage = () => {
 
             {tab === "trazabilidades" && (
               <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
                     <span className="text-sm font-semibold text-slate-700">Muestra *</span>
                     <Select
