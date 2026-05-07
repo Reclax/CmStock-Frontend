@@ -82,6 +82,12 @@ const safe = (val) => {
   return String(val) || "—";
 };
 
+const esMuestraVariacion = (row) => {
+  if (!row) return false;
+  if (row.variacion === true) return true;
+  return String(row.estado || "").trim().toLowerCase() === "variacion";
+};
+
 const EstadoBadge = ({ estado }) => {
   const meta = ESTADO_META[estado?.toLowerCase()] ?? {
     label: estado || "—",
@@ -139,6 +145,7 @@ export const MuestrasPage = () => {
     ubicacionid: "",
     licenciado: "",
     dima: "",
+    molderia: "",
     molderiaid: "",
     disenadorid: "",
     from: "",
@@ -185,6 +192,10 @@ export const MuestrasPage = () => {
   const [viewPhotos, setViewPhotos] = useState([]);
   const [loadingViewPhotos, setLoadingViewPhotos] = useState(false);
 
+  // ── Variaciones anexadas ──
+  const [variacionesAnexadas, setVariacionesAnexadas] = useState([]);
+  const [loadingVariaciones, setLoadingVariaciones] = useState(false);
+
   // ── Modal de Moldería ──
   const [molderiaPromptOpen, setMolderiaPromptOpen] = useState(false);
   const [newMolderiaName, setNewMolderiaName] = useState("");
@@ -212,7 +223,10 @@ export const MuestrasPage = () => {
         params.set("clienteid", activeFilters.clienteid);
       if (activeFilters.ubicacionid)
         params.set("ubicacionid", activeFilters.ubicacionid);
-      if (activeFilters.molderiaid)
+      // molderia: texto libre tiene prioridad; si no, usar ID exacto
+      if (activeFilters.molderia)
+        params.set("molderia", activeFilters.molderia);
+      else if (activeFilters.molderiaid)
         params.set("molderiaid", activeFilters.molderiaid);
       if (activeFilters.disenadorid)
         params.set("disenadorid", activeFilters.disenadorid);
@@ -225,9 +239,11 @@ export const MuestrasPage = () => {
         `${ENDPOINTS.muestras}?${params.toString()}`,
       );
       const data = toCollection(payload);
+      // Filtrar para excluir variaciones de la tabla principal
+      const filteredData = data.filter((row) => !esMuestraVariacion(row));
       const total = payload?.total ?? payload?.count ?? data.length;
-      setRows(data);
-      setTotalItems(typeof total === "number" ? total : data.length);
+      setRows(filteredData);
+      setTotalItems(typeof total === "number" ? total : filteredData.length);
     } catch (err) {
       setFetchError(err.message || "Error cargando muestras");
     } finally {
@@ -369,6 +385,7 @@ export const MuestrasPage = () => {
       ubicacionid: "",
       licenciado: "",
       dima: "",
+      molderia: "",
       molderiaid: "",
       disenadorid: "",
       from: "",
@@ -585,33 +602,44 @@ export const MuestrasPage = () => {
     }
   };
   const openView = async (row) => {
+    const ownerId = row.id;
     setViewRow(row);
     setPresentaciones([]);
     setViewPhotos([]);
     setQrUrl("");
     setQrLink("");
+    setVariacionesAnexadas([]);
     setLoadingPres(true);
     setLoadingViewPhotos(true);
+    setLoadingVariaciones(true);
     try {
-      const [presData, fotosData] = await Promise.all([
-        api.get(`${ENDPOINTS.muestras}/${row.id}/presentaciones`),
-        api.get(`${ENDPOINTS.fotos}?muestraid=${row.id}`),
+      const [presData, fotosData, todasMuestras] = await Promise.all([
+        api.get(`${ENDPOINTS.muestras}/${ownerId}/presentaciones`),
+        api.get(`${ENDPOINTS.fotos}?muestraid=${ownerId}`),
+        api.get(`${ENDPOINTS.variaciones}?muestraOriginalId=${ownerId}&page=1&limit=5000`),
       ]);
       setPresentaciones(Array.isArray(presData) ? presData : []);
       setViewPhotos(Array.isArray(fotosData) ? fotosData : []);
 
-      // Generar QR para la muestra
+      // Cargar variaciones anexadas a esta muestra/variación
+      const todasMuestrasArr = toCollection(todasMuestras);
+      const variaciones = todasMuestrasArr.filter((m) => m.muestraOriginalId === ownerId && esMuestraVariacion(m));
+      setVariacionesAnexadas(variaciones);
+
+      // Generar QR para la muestra/variación
       const baseUrl = window.location.origin;
-      const detailUrl = `${baseUrl}/muestra/${row.id}`;
+      const detailUrl = `${baseUrl}/muestra/${ownerId}`;
       setQrLink(detailUrl);
       const qrDataUrl = await generateQrDataUrl(detailUrl);
       setQrUrl(qrDataUrl);
     } catch {
       setPresentaciones([]);
       setViewPhotos([]);
+      setVariacionesAnexadas([]);
     } finally {
       setLoadingPres(false);
       setLoadingViewPhotos(false);
+      setLoadingVariaciones(false);
     }
   };
 
@@ -658,14 +686,21 @@ export const MuestrasPage = () => {
       key: "_ver",
       label: "",
       render: (row) => (
-        <button
-          type="button"
-          onClick={() => openView(row)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2.5 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
-        >
-          <FiEye className="h-3.5 w-3.5" />
-          Ver
-        </button>
+        <div className="inline-flex items-center gap-2">
+          {esMuestraVariacion(row) && (
+            <span className="inline-flex items-center rounded-full border border-indigo-300 bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-700">
+              Var
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => openView(row)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2.5 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
+          >
+            <FiEye className="h-3.5 w-3.5" />
+            Ver
+          </button>
+        </div>
       ),
     },
   ];
@@ -779,20 +814,14 @@ export const MuestrasPage = () => {
                 </option>
               ))}
             </select>
-            <select
+            <input
               className={inputCls}
-              value={filters.molderiaid}
+              placeholder="Moldería (ej: sueca, hormiga...)"
+              value={filters.molderia}
               onChange={(e) =>
-                setFilters((p) => ({ ...p, molderiaid: e.target.value }))
+                setFilters((p) => ({ ...p, molderia: e.target.value, molderiaid: "" }))
               }
-            >
-              <option value="">Todas las molderías</option>
-              {catalogs.molderias.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre}
-                </option>
-              ))}
-            </select>
+            />
             <select
               className={inputCls}
               value={filters.ubicacionid}
@@ -1479,52 +1508,28 @@ export const MuestrasPage = () => {
                 { label: "Segmento", value: viewRow.segmento },
                 {
                   label: "Estado",
-                  value: <EstadoBadge estado={viewRow.estado} />,
+                  value: esMuestraVariacion(viewRow)
+                    ? "—"
+                    : <EstadoBadge estado={viewRow.estado} />,
                 },
-                {
-                  label: "Moldería",
-                  value: safe(
-                    catalogs.molderiasMap?.[viewRow.molderiaid] ??
-                      viewRow.molderia,
-                  ),
-                },
+                ...(esMuestraVariacion(viewRow)
+                  ? [{ label: "Variación", value: "Sí" }]
+                  : []),
+                { label: "Moldería", value: safe(catalogs.molderiasMap?.[viewRow.molderiaid] ?? viewRow.molderia) },
                 { label: "Pares elaborados", value: viewRow.pareselaborados },
-                {
-                  label: "Fecha elaboración",
-                  value: viewRow.fechaelaboracion?.slice(0, 10),
-                },
-                {
-                  label: "Cliente",
-                  value: safe(
-                    catalogs.clientesMap?.[viewRow.clienteid] ??
-                      viewRow.clienteid,
-                  ),
-                },
-                {
-                  label: "Ubicación",
-                  value: safe(
-                    catalogs.ubicacionesMap?.[viewRow.ubicacionid] ??
-                      viewRow.ubicacionid,
-                  ),
-                },
+                { label: "Fecha elaboración", value: viewRow.fechaelaboracion?.slice(0, 10) },
+                { label: "Cliente", value: safe(catalogs.clientesMap?.[viewRow.clienteid] ?? viewRow.clienteid) },
+                { label: "Ubicación", value: safe(catalogs.ubicacionesMap?.[viewRow.ubicacionid] ?? viewRow.ubicacionid) },
                 {
                   label: "Diseñador",
-                  value:
-                    typeof viewRow.disenador === "object" &&
-                    viewRow.disenador?.nombre
-                      ? viewRow.disenador.nombre
-                      : typeof viewRow.disenador === "string" &&
-                          viewRow.disenador.trim() !== ""
-                        ? viewRow.disenador
-                        : safe(
-                            catalogs.disenadoresMap?.[viewRow.disenadorid] ??
-                              viewRow.disenadorid,
-                          ),
+                  value: typeof viewRow.disenador === "object" && viewRow.disenador?.nombre
+                    ? viewRow.disenador.nombre
+                    : typeof viewRow.disenador === "string" && viewRow.disenador.trim() !== ""
+                      ? viewRow.disenador
+                      : safe(catalogs.disenadoresMap?.[viewRow.disenadorid] ?? viewRow.disenadorid),
                 },
-                {
-                  label: "Licenciado",
-                  value: viewRow.licenciado ? "Sí" : "No",
-                },
+                { label: "DIMA", value: viewRow.dima || "—" },
+                { label: "Licencia", value: viewRow.licencia || "—" },
               ].map(({ label, value }) => (
                 <div
                   key={label}
@@ -1617,6 +1622,58 @@ export const MuestrasPage = () => {
                             {p.observaciones}
                           </p>
                         )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Variaciones ── */}
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Variaciones</h3>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1B3D8F] text-[10px] font-black text-white">
+                  {loadingVariaciones ? "…" : variacionesAnexadas.length}
+                </span>
+              </div>
+              {loadingVariaciones ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+                  Cargando variaciones...
+                </div>
+              ) : variacionesAnexadas.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
+                  <p className="text-xs font-medium text-slate-400">Sin variaciones registradas para esta muestra.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {variacionesAnexadas.map((v) => (
+                    <div key={v.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-800">{v.referencia}</p>
+                          <p className="text-xs text-slate-500">
+                            {v.segmento || "—"}
+                            {v.estado ? ` · ${v.estado}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-500">
+                            {typeof v.molderia === "object" ? v.molderia?.nombre : (safe(catalogs.molderiasMap?.[v.molderiaid]) !== "—" ? safe(catalogs.molderiasMap?.[v.molderiaid]) : "")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewRow(null);
+                              setTimeout(() => openView(v), 100);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2.5 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
+                          >
+                            <FiEye className="h-3.5 w-3.5" />
+                            Ver
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1973,6 +2030,8 @@ export const MuestrasPage = () => {
           </form>
         </Modal>
       )}
+
     </section>
   );
 };
+
