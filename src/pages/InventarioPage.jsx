@@ -5,6 +5,7 @@ import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
+import Select from "react-select";
 import {
   FiChevronsLeft,
   FiChevronLeft,
@@ -164,7 +165,7 @@ export const InventarioPage = () => {
     return Object.fromEntries(
       muestras.items.map((m) => [
         m.id,
-        `${m.referencia} · ${m.modelo}`,
+        `${m.referencia}${m.modelo ? ` · ${m.modelo}` : ""}`,
       ])
     );
   }, [muestras.items]);
@@ -220,6 +221,12 @@ export const InventarioPage = () => {
 
   const submit = async (e) => {
     e.preventDefault();
+
+    if (!form.muestraid) {
+      // keep simple client-side validation similar to native required
+      alert("Selecciona una muestra");
+      return;
+    }
 
     const payload = {
       ...form,
@@ -399,7 +406,7 @@ export const InventarioPage = () => {
 
   return (
     <section className="space-y-5">
-      <header className="relative px-1 py-4 border-b border-slate-200">
+      <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Inventario y bodega
@@ -408,13 +415,15 @@ export const InventarioPage = () => {
             Stock por muestra, ubicación e historial de movimientos.
           </p>
         </div>
-        <button
-          type="button"
-          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-          onClick={openCreate}
-        >
-          <FiPlus className="h-4 w-4" /> Nuevo movimiento
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+            onClick={openCreate}
+          >
+            <FiPlus className="h-4 w-4" /> Nuevo movimiento
+          </button>
+        </div>
       </header>
 
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -490,32 +499,46 @@ export const InventarioPage = () => {
         ])}
 
       {modalOpen && (
-        <Modal
+          <Modal
           title={editing ? "Editar movimiento" : "Nuevo movimiento"}
           onClose={closeModal}
         >
-          <form onSubmit={submit} className="form-grid two-columns">
-            <div className="full-width">
+          <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="full-width sm:col-span-2">
               <label className={labelClassName} htmlFor="inv-muestra">
                 Muestra
               </label>
-              <div className={`${controlWrapClassName} relative`}>
-                <select
-                  id="inv-muestra"
-                  required
-                  value={form.muestraid}
-                  onChange={(e) => onChange("muestraid", e.target.value)}
-                  className={selectClassName}
-                >
-                  <option value="">Selecciona una muestra</option>
-                  {muestras.items.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.referencia} · {m.modelo}
-                    </option>
-                  ))}
-                </select>
-                <SelectChevron />
-              </div>
+              <Select
+                options={muestras.items.map((m) => ({
+                  value: m.id,
+                  label: `${m.referencia}${m.modelo ? ` · ${m.modelo}` : ""}`,
+                }))}
+                value={
+                  form.muestraid
+                    ? { value: form.muestraid, label: muestraLabelById[form.muestraid] || form.muestraid }
+                    : null
+                }
+                onChange={(option) => onChange("muestraid", option?.value || "")}
+                isClearable
+                isSearchable
+                placeholder="Buscar por referencia..."
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderRadius: "0.5rem",
+                    borderColor: "#cbd5e1",
+                    fontSize: "0.875rem",
+                    minHeight: "2.625rem",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected ? "#1B3D8F" : state.isFocused ? "#f1f5f9" : "white",
+                    color: state.isSelected ? "white" : "#1f2937",
+                    cursor: "pointer",
+                  }),
+                  menuList: (base) => ({ ...base, maxHeight: "200px" }),
+                }}
+              />
             </div>
 
             <div>
@@ -571,7 +594,7 @@ export const InventarioPage = () => {
               </div>
             </div>
 
-            <div className="full-width">
+            <div className="full-width sm:col-span-2">
               <label className={labelClassName} htmlFor="inv-motivo">
                 Motivo (opcional)
               </label>
@@ -587,7 +610,7 @@ export const InventarioPage = () => {
               </div>
             </div>
 
-            <div className="full-width">
+            <div className="full-width sm:col-span-2">
               <label className={labelClassName} htmlFor="inv-usuario">
                 Usuario
               </label>
@@ -610,7 +633,7 @@ export const InventarioPage = () => {
               </div>
             </div>
 
-            <div className="form-actions full-width">
+            <div className="form-actions full-width sm:col-span-2">
               <button type="button" className="ghost-btn" onClick={closeModal}>
                 Cancelar
               </button>

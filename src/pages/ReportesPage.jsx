@@ -412,7 +412,7 @@ export const ReportesPage = () => {
 
   return (
     <section className="space-y-6">
-      <header className="relative px-1 py-4 border-b border-slate-200">
+      <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Reportes y estadísticas
@@ -421,13 +421,15 @@ export const ReportesPage = () => {
             Panel ejecutivo con filtros, indicadores operativos y exportaciones listas para análisis.
           </p>
         </div>
-        <button
-          type="button"
-          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-          onClick={load}
-        >
-          Actualizar
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+            onClick={load}
+          >
+            Actualizar
+          </button>
+        </div>
       </header>
 
       <div className="rounded-[26px] border border-slate-200 bg-white/80 p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">

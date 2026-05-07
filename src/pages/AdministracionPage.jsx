@@ -284,7 +284,7 @@ export const AdministracionPage = () => {
   // =========================
   return (
     <section className="space-y-5">
-      <header className="relative px-1 py-4 border-b border-slate-200">
+      <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Administración
@@ -293,13 +293,15 @@ export const AdministracionPage = () => {
             CRUDs del sistema: clientes, molderías, ubicaciones y usuarios.
           </p>
         </div>
-        <button
-          type="button"
-          className="absolute top-4 right-1 inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-          onClick={openNew}
-        >
-          <FiPlus className="h-4 w-4" /> Nuevo {tabLabel}
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+            onClick={openNew}
+          >
+            <FiPlus className="h-4 w-4" /> Nuevo {tabLabel}
+          </button>
+        </div>
       </header>
 
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
