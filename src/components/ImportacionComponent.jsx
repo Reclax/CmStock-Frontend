@@ -182,51 +182,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
         </div>
       </div>
 
-      {/* Status Results */}
-      {status && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* BASE DIS Result */}
-          {status.baseDis && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <FiCheckCircle className="text-green-600 mt-0.5" />
-                <h3 className="font-semibold text-green-900">BASE DIS 2025</h3>
-              </div>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-green-700">Registros procesados:</dt>
-                  <dd className="font-semibold text-green-900">{status.baseDis.procesados}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-green-700">Nuevos creados:</dt>
-                  <dd className="font-semibold text-green-900">{status.baseDis.creados}</dd>
-                </div>
-              </dl>
-            </div>
-          )}
 
-          {/* APROBACIONES Result */}
-          {status.aprobaciones && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <FiCheckCircle className="text-green-600 mt-0.5" />
-                <h3 className="font-semibold text-green-900">Aprobaciones</h3>
-              </div>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-green-700">Registros procesados:</dt>
-                  <dd className="font-semibold text-green-900">{status.aprobaciones.procesados}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-green-700">Nuevos creados:</dt>
-                  <dd className="font-semibold text-green-900">{status.aprobaciones.creados}</dd>
-                </div>
-              </dl>
-            </div>
-          )}
-
-        </div>
-      )}
         {/* Status Results */}
         {status && (
           <div className="space-y-4">
