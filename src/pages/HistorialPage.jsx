@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  FiAlertTriangle,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight,
+  FiPlus,
+} from "react-icons/fi";
+import Select from "react-select";
 import { ENDPOINTS } from "../api/endpoints";
 import { DataGrid } from "../components/DataGrid";
 import { Modal } from "../components/Modal";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
-import Select from "react-select";
-import {
-  FiChevronsLeft,
-  FiChevronLeft,
-  FiChevronRight,
-  FiChevronsRight,
-  FiAlertTriangle,
-  FiPlus,
-} from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
 
 const PAGE_SIZE = 20;
@@ -21,14 +21,12 @@ const PAGE_SIZE = 20;
 const tabs = [
   { key: "presentaciones", label: "Presentaciones" },
   { key: "producciones", label: "Producciones" },
-  { key: "trazabilidades", label: "Trazabilidad" },
 ];
 
 export const HistorialPage = () => {
   const catalogs = useCatalogData();
   const presentaciones = useCrud(ENDPOINTS.presentaciones);
   const producciones = useCrud(ENDPOINTS.producciones);
-  const trazabilidades = useCrud(ENDPOINTS.trazabilidades);
   const muestras = useCrud(ENDPOINTS.muestras);
 
   const [tab, setTab] = useState("presentaciones");
@@ -39,17 +37,15 @@ export const HistorialPage = () => {
   const [page, setPage] = useState(1);
   const { load: loadPresentaciones } = presentaciones;
   const { load: loadProducciones } = producciones;
-  const { load: loadTrazabilidades } = trazabilidades;
   const { load: loadMuestras } = muestras;
 
   useEffect(() => {
     loadPresentaciones();
     loadProducciones();
-    loadTrazabilidades();
     loadMuestras();
-  }, [loadPresentaciones, loadProducciones, loadTrazabilidades, loadMuestras]);
+  }, [loadPresentaciones, loadProducciones, loadMuestras]);
 
-  const services = { presentaciones, producciones, trazabilidades };
+  const services = { presentaciones, producciones };
   const service = services[tab];
 
   useEffect(() => {
@@ -104,11 +100,11 @@ export const HistorialPage = () => {
     let payload = { ...form };
 
     if (tab === "presentaciones") {
+      const produccionValue = toNumber(payload.paresaprobados);
       payload = {
         ...payload,
-        paresaprobados: toNumber(payload.paresaprobados),
-        paresrechazados: toNumber(payload.paresrechazados),
-        derivoproduccion: Boolean(payload.derivoproduccion),
+        paresaprobados: produccionValue,
+        derivoproduccion: produccionValue > 0,
       };
     }
 
@@ -135,20 +131,12 @@ export const HistorialPage = () => {
   };
 
   const disenadorIds = useMemo(() => {
-    return Array.from(
-      new Set(
-        trazabilidades.items.map((item) => item.disenadorid).filter(Boolean),
-      ),
-    );
-  }, [trazabilidades.items]);
+    return [];
+  }, []);
 
   const modeladorIds = useMemo(() => {
-    return Array.from(
-      new Set(
-        trazabilidades.items.map((item) => item.modeladorid).filter(Boolean),
-      ),
-    );
-  }, [trazabilidades.items]);
+    return [];
+  }, []);
 
   const muestrasMap = useMemo(() => {
     return Object.fromEntries(
@@ -169,12 +157,11 @@ export const HistorialPage = () => {
       },
       { key: "fecha", label: "Fecha", render: (row) => toDateInput(row.fecha) },
       { key: "resultado", label: "Resultado" },
-      { key: "paresaprobados", label: "Aprobados" },
-      { key: "paresrechazados", label: "Rechazados" },
+      { key: "paresaprobados", label: "Produccion" },
       {
         key: "derivoproduccion",
         label: "Derivo",
-        render: (row) => (row.derivoproduccion ? "Si" : "No"),
+        render: (row) => (row.paresaprobados > 0 ? "Si" : "No"),
       },
     ],
     producciones: [
@@ -193,31 +180,6 @@ export const HistorialPage = () => {
       },
       { key: "mes", label: "Mes" },
     ],
-    trazabilidades: [
-      { key: "muestraid", label: "Referencia", render: getMuestraLabel },
-      { key: "disenadorid", label: "Disenador" },
-      { key: "modeladorid", label: "Modelador" },
-      {
-        key: "fecharequerimiento",
-        label: "Req",
-        render: (row) => toDateInput(row.fecharequerimiento),
-      },
-      {
-        key: "fechadiseno",
-        label: "Diseno",
-        render: (row) => toDateInput(row.fechadiseno),
-      },
-      {
-        key: "fechamolderia",
-        label: "Molderia",
-        render: (row) => toDateInput(row.fechamolderia),
-      },
-      {
-        key: "fecharegistro",
-        label: "Registro",
-        render: (row) => toDateInput(row.fecharegistro),
-      },
-    ],
   };
 
   return (
@@ -225,10 +187,10 @@ export const HistorialPage = () => {
       <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
-            Historial y trazabilidad
+            Historial
           </h1>
           <p className="text-sm text-slate-500 max-w-lg">
-            Control de presentaciones, producción y fases del flujo de muestra.
+            Control de presentaciones y producción.
           </p>
         </div>
         <div className="mt-3 flex justify-center">
@@ -354,13 +316,20 @@ export const HistorialPage = () => {
       </article>
 
       {rowToDelete && (
-        <Modal title="Confirmar eliminacion" onClose={() => setRowToDelete(null)}>
+        <Modal
+          title="Confirmar eliminacion"
+          onClose={() => setRowToDelete(null)}
+        >
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
               <FiAlertTriangle className="mt-0.5" />
               <div>
-                <p className="m-0 font-semibold">Esta accion no se puede deshacer.</p>
-                <p className="m-0 text-sm">Se eliminara el registro seleccionado.</p>
+                <p className="m-0 font-semibold">
+                  Esta accion no se puede deshacer.
+                </p>
+                <p className="m-0 text-sm">
+                  Se eliminara el registro seleccionado.
+                </p>
               </div>
             </div>
 
@@ -372,7 +341,11 @@ export const HistorialPage = () => {
               >
                 Cancelar
               </button>
-              <button type="button" className="secondary-btn" onClick={confirmDelete}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={confirmDelete}
+              >
                 Eliminar
               </button>
             </div>
@@ -390,7 +363,9 @@ export const HistorialPage = () => {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Muestra *
+                    </span>
                     <Select
                       options={muestras.items.map((item) => ({
                         value: item.id,
@@ -440,7 +415,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Cliente *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Cliente *
+                    </span>
                     <select
                       required
                       value={form.clienteid || ""}
@@ -459,18 +436,24 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha *
+                    </span>
                     <input
                       type="date"
                       required
                       value={toDateInput(form.fecha)}
-                      onChange={(event) => onChange("fecha", event.target.value)}
+                      onChange={(event) =>
+                        onChange("fecha", event.target.value)
+                      }
                       className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                     />
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Resultado *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Resultado *
+                    </span>
                     <select
                       required
                       value={form.resultado || ""}
@@ -480,38 +463,29 @@ export const HistorialPage = () => {
                       className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                     >
                       <option value="">Selecciona</option>
-                      <option value="Aprobado">Aprobado</option>
-                      <option value="Rechazado">Rechazado</option>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="Parcial">Parcial</option>
-                      <option value="Revisar">Revisar</option>
+                      <option value="aprobada">Aprobado</option>
+                      <option value="pendiente">Pendiente</option>
+                      <option value="rechazada">Dado de baja</option>
                     </select>
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Pares aprobados</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Produccion
+                    </span>
                     <input
                       type="number"
                       min="0"
                       placeholder="0"
                       value={form.paresaprobados || ""}
-                      onChange={(event) =>
-                        onChange("paresaprobados", event.target.value)
-                      }
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Pares rechazados</span>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={form.paresrechazados || ""}
-                      onChange={(event) =>
-                        onChange("paresrechazados", event.target.value)
-                      }
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        onChange("paresaprobados", value);
+                        const numValue = toNumber(value);
+                        if (numValue > 0) {
+                          onChange("derivoproduccion", true);
+                        }
+                      }}
                       className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                     />
                   </label>
@@ -526,11 +500,15 @@ export const HistorialPage = () => {
                     }
                     className="h-4 w-4 rounded border-slate-300 text-[#1B3D8F]"
                   />
-                  <span className="text-sm font-medium text-slate-700">Derivó en producción</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    Derivó en producción
+                  </span>
                 </label>
 
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-sm font-semibold text-slate-700">Observaciones</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    Observaciones
+                  </span>
                   <textarea
                     rows="3"
                     placeholder="Notas o comentarios adicionales..."
@@ -548,7 +526,9 @@ export const HistorialPage = () => {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Muestra *
+                    </span>
                     <Select
                       options={muestras.items.map((item) => ({
                         value: item.id,
@@ -598,7 +578,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Cliente *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Cliente *
+                    </span>
                     <select
                       required
                       value={form.clienteid || ""}
@@ -617,7 +599,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Orden producción *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Orden producción *
+                    </span>
                     <input
                       type="text"
                       required
@@ -631,7 +615,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Pares producidos *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Pares producidos *
+                    </span>
                     <input
                       type="number"
                       required
@@ -646,7 +632,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha producción *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha producción *
+                    </span>
                     <input
                       type="date"
                       required
@@ -659,7 +647,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Mes *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Mes *
+                    </span>
                     <input
                       type="text"
                       required
@@ -677,7 +667,9 @@ export const HistorialPage = () => {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Muestra *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Muestra *
+                    </span>
                     <Select
                       options={muestras.items.map((item) => ({
                         value: item.id,
@@ -727,7 +719,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Diseñador ID *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Diseñador ID *
+                    </span>
                     <input
                       list="hist-disenadores"
                       type="text"
@@ -747,7 +741,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Modelador ID *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Modelador ID *
+                    </span>
                     <input
                       list="hist-modeladores"
                       type="text"
@@ -767,7 +763,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha requerimiento *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha requerimiento *
+                    </span>
                     <input
                       type="date"
                       required
@@ -780,7 +778,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha diseño *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha diseño *
+                    </span>
                     <input
                       type="date"
                       required
@@ -793,7 +793,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha moldería *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha moldería *
+                    </span>
                     <input
                       type="date"
                       required
@@ -806,7 +808,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Fecha registro *</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Fecha registro *
+                    </span>
                     <input
                       type="date"
                       required
@@ -819,7 +823,9 @@ export const HistorialPage = () => {
                   </label>
 
                   <label className="col-span-2 flex flex-col gap-1.5">
-                    <span className="text-sm font-semibold text-slate-700">Tiempos</span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      Tiempos
+                    </span>
                     <input
                       type="text"
                       placeholder="Ej: 5 días"
