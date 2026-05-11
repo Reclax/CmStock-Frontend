@@ -7,6 +7,7 @@ import {
   FiChevronRight,
   FiChevronsLeft,
   FiChevronsRight,
+  FiEdit2,
   FiEye,
   FiFilter,
   FiPlus,
@@ -132,6 +133,7 @@ const StatChip = ({ label, value, accent }) => (
 export const MuestrasPage = () => {
   const catalogs = useCatalogData();
   const muestras = useCrud(ENDPOINTS.muestras);
+  const variaciones = useCrud(ENDPOINTS.variaciones);
   const presentacionesCrud = useCrud(ENDPOINTS.presentaciones);
   const [rows, setRows] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -172,10 +174,15 @@ export const MuestrasPage = () => {
     fecha: "",
     resultado: "",
     paresaprobados: 0,
+    paresrechazados: 0,
     derivoproduccion: false,
     observaciones: "",
   });
   const [savingPresentacion, setSavingPresentacion] = useState(false);
+
+  // ── Modal de detalle / edición de una presentación existente ──
+  const [editingPresentacion, setEditingPresentacion] = useState(null); // { ...presentacion }
+  const [savingEditPres, setSavingEditPres] = useState(false);
 
   // ── Fotos / Cámara en modal edición ──
   const [editPhotos, setEditPhotos] = useState([]);
@@ -556,8 +563,15 @@ export const MuestrasPage = () => {
       };
 
       if (editing) {
-        await muestras.update(editing.id, payload);
-        toast.success("Muestra actualizada correctamente");
+        // Si es una variación, actualizar en tabla variaciones; si no, en muestras
+        const isVariation = esMuestraVariacion(editing);
+        if (isVariation) {
+          await variaciones.update(editing.id, payload);
+          toast.success("Variación actualizada correctamente");
+        } else {
+          await muestras.update(editing.id, payload);
+          toast.success("Muestra actualizada correctamente");
+        }
       } else {
         const newMuestra = await muestras.create(payload);
         toast.success("Muestra creada correctamente");
@@ -603,6 +617,7 @@ export const MuestrasPage = () => {
   };
   const openView = async (row) => {
     const ownerId = row.id;
+    const isVariation = esMuestraVariacion(row);
     setViewRow(row);
     setPresentaciones([]);
     setViewPhotos([]);
@@ -611,20 +626,35 @@ export const MuestrasPage = () => {
     setVariacionesAnexadas([]);
     setLoadingPres(true);
     setLoadingViewPhotos(true);
-    setLoadingVariaciones(true);
+    setLoadingVariaciones(!isVariation);
     try {
+      // Usar endpoint correcto según si es muestra o variación
+      const presentacionesEndpoint = isVariation
+        ? `${ENDPOINTS.variaciones}/${ownerId}/presentaciones`
+        : `${ENDPOINTS.muestras}/${ownerId}/presentaciones`;
+
       const [presData, fotosData, todasMuestras] = await Promise.all([
-        api.get(`${ENDPOINTS.muestras}/${ownerId}/presentaciones`),
+        api.get(presentacionesEndpoint),
         api.get(`${ENDPOINTS.fotos}?muestraid=${ownerId}`),
-        api.get(`${ENDPOINTS.variaciones}?muestraOriginalId=${ownerId}&page=1&limit=5000`),
+        isVariation
+          ? Promise.resolve([])
+          : api.get(
+            `${ENDPOINTS.variaciones}?muestraOriginalId=${ownerId}&page=1&limit=5000`,
+          ),
       ]);
       setPresentaciones(Array.isArray(presData) ? presData : []);
       setViewPhotos(Array.isArray(fotosData) ? fotosData : []);
 
-      // Cargar variaciones anexadas a esta muestra/variación
-      const todasMuestrasArr = toCollection(todasMuestras);
-      const variaciones = todasMuestrasArr.filter((m) => m.muestraOriginalId === ownerId && esMuestraVariacion(m));
-      setVariacionesAnexadas(variaciones);
+      // Solo la muestra base muestra sus variaciones anexadas
+      if (isVariation) {
+        setVariacionesAnexadas([]);
+      } else {
+        const todasMuestrasArr = toCollection(todasMuestras);
+        const variaciones = todasMuestrasArr.filter(
+          (m) => m.muestraOriginalId === ownerId && esMuestraVariacion(m),
+        );
+        setVariacionesAnexadas(variaciones);
+      }
 
       // Generar QR para la muestra/variación
       const baseUrl = window.location.origin;
@@ -641,6 +671,11 @@ export const MuestrasPage = () => {
       setLoadingViewPhotos(false);
       setLoadingVariaciones(false);
     }
+  };
+
+  const openEditFromDetail = (row) => {
+    setViewRow(null);
+    setTimeout(() => openEdit(row), 100);
   };
 
   const columns = [
@@ -737,11 +772,10 @@ export const MuestrasPage = () => {
         <button
           type="button"
           onClick={() => setShowFilters((v) => !v)}
-          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${
-            showFilters || activeFilterCount > 0
-              ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
-              : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
-          }`}
+          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${showFilters || activeFilterCount > 0
+            ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
+            : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
+            }`}
         >
           <FiFilter className="h-4 w-4" />
           Filtros
@@ -1453,6 +1487,18 @@ export const MuestrasPage = () => {
           onClose={() => setViewRow(null)}
         >
           <div className="space-y-6">
+            {esMuestraVariacion(viewRow) && (
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEditFromDetail(viewRow)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#1B3D8F] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#163272]"
+                >
+                  <FiEdit2 className="h-3.5 w-3.5" />
+                  Editar variación
+                </button>
+              </div>
+            )}
             {/* ── Fotos ── */}
             <div>
               <div className="mb-3 flex items-center gap-2">
@@ -1572,113 +1618,69 @@ export const MuestrasPage = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {presentaciones.map((p) => (
-                    <div
-                      key={p.id}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-800">
-                            {p.cliente?.nombre ||
-                              safe(catalogs.clientesMap?.[p.clienteid]) ||
-                              "Cliente desconocido"}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {p.cliente?.region
-                              ? `Región: ${p.cliente.region} · `
-                              : ""}
-                            Fecha: {p.fecha?.slice(0, 10) || "—"}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {p.resultado && p.resultado !== "undefined" && (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${
-                                p.resultado === "producida"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-rose-50 text-rose-700 border-rose-200"
-                              }`}
-                            >
-                              {p.resultado}
+                  {presentaciones.map((p) => {
+                    const resultadoCls = {
+                      aprobada: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      producida: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      rechazada: "bg-rose-50 text-rose-700 border-rose-200",
+                      pendiente: "bg-orange-50 text-orange-700 border-orange-200",
+                      parcial: "bg-amber-50 text-amber-700 border-amber-200",
+                      revisar: "bg-violet-50 text-violet-700 border-violet-200",
+                    }[p.resultado] ?? "bg-slate-50 text-slate-600 border-slate-200";
+                    return (
+                      <div
+                        key={p.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setEditingPresentacion({ ...p })}
+                        onKeyDown={(e) => e.key === "Enter" && setEditingPresentacion({ ...p })}
+                        className="group rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer transition hover:border-[#1B3D8F]/40 hover:shadow-md hover:shadow-[#1B3D8F]/5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-800 group-hover:text-[#1B3D8F] transition">
+                              {p.cliente?.nombre ||
+                                safe(catalogs.clientesMap?.[p.clienteid]) ||
+                                "Cliente desconocido"}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {p.cliente?.region ? `Región: ${p.cliente.region} · ` : ""}
+                              Fecha: {p.fecha?.slice(0, 10) || "—"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {p.resultado && p.resultado !== "undefined" && (
+                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${resultadoCls}`}>
+                                {p.resultado}
+                              </span>
+                            )}
+                            {p.derivoproduccion && (
+                              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
+                                Derivó a producción
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2 py-1 text-[10px] font-semibold text-[#1B3D8F] opacity-0 group-hover:opacity-100 transition">
+                              <FiEdit2 className="h-3 w-3" /> Editar
                             </span>
-                          )}
-                          {p.derivoproduccion && (
-                            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
-                              Derivó a producción
-                            </span>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                      {p.paresaprobados > 0 && (
-                        <div className="mt-2 text-xs text-slate-500">
-                          <span>✓ {p.paresaprobados} producidos</span>
-                        </div>
-                      )}
-                      {p.observaciones &&
-                        p.observaciones.trim() &&
-                        p.observaciones !== "undefined" && (
-                          <p className="mt-2 text-xs text-slate-500">
-                            {p.observaciones}
-                          </p>
+                        {(p.paresaprobados > 0 || p.paresrechazados > 0) && (
+                          <div className="mt-2 flex gap-4 text-xs text-slate-500">
+                            {p.paresaprobados > 0 && <span className="text-emerald-600">✓ {p.paresaprobados} aprobados</span>}
+                            {p.paresrechazados > 0 && <span className="text-rose-600">✗ {p.paresrechazados} rechazados</span>}
+                          </div>
                         )}
-                    </div>
-                  ))}
+                        {p.observaciones && p.observaciones.trim() && p.observaciones !== "undefined" && (
+                          <p className="mt-2 text-xs text-slate-500 line-clamp-2">{p.observaciones}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            {/* ── Variaciones ── */}
-            <div>
-              <div className="mb-3 flex items-center gap-2">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Variaciones</h3>
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1B3D8F] text-[10px] font-black text-white">
-                  {loadingVariaciones ? "…" : variacionesAnexadas.length}
-                </span>
-              </div>
-              {loadingVariaciones ? (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
-                  Cargando variaciones...
-                </div>
-              ) : variacionesAnexadas.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
-                  <p className="text-xs font-medium text-slate-400">Sin variaciones registradas para esta muestra.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {variacionesAnexadas.map((v) => (
-                    <div key={v.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-800">{v.referencia}</p>
-                          <p className="text-xs text-slate-500">
-                            {v.segmento || "—"}
-                            {v.estado ? ` · ${v.estado}` : ""}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-slate-500">
-                            {typeof v.molderia === "object" ? v.molderia?.nombre : (safe(catalogs.molderiasMap?.[v.molderiaid]) !== "—" ? safe(catalogs.molderiasMap?.[v.molderiaid]) : "")}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setViewRow(null);
-                              setTimeout(() => openView(v), 100);
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2.5 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
-                          >
-                            <FiEye className="h-3.5 w-3.5" />
-                            Ver
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
 
             {/* Clientes sin presentación */}
             {!loadingPres &&
@@ -1722,6 +1724,7 @@ export const MuestrasPage = () => {
                                 fecha: new Date().toISOString().slice(0, 10),
                                 resultado: "pendiente",
                                 paresaprobados: 0,
+                                paresrechazados: 0,
                                 derivoproduccion: false,
                                 observaciones: "",
                               });
@@ -1747,6 +1750,63 @@ export const MuestrasPage = () => {
                   </div>
                 );
               })()}
+
+            {!esMuestraVariacion(viewRow) && (
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Variaciones</h3>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1B3D8F] text-[10px] font-black text-white">
+                    {loadingVariaciones ? "…" : variacionesAnexadas.length}
+                  </span>
+                </div>
+                {loadingVariaciones ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+                    Cargando variaciones...
+                  </div>
+                ) : variacionesAnexadas.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
+                    <p className="text-xs font-medium text-slate-400">Sin variaciones registradas para esta muestra.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {variacionesAnexadas.map((v) => (
+                      <div key={v.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-800">{v.referencia}</p>
+                            <p className="text-xs text-slate-500">
+                              {v.segmento || "—"}
+                              {v.estado ? ` · ${v.estado}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-slate-500">
+                              {typeof v.molderia === "object"
+                                ? v.molderia?.nombre
+                                : safe(catalogs.molderiasMap?.[v.molderiaid]) !== "—"
+                                  ? safe(catalogs.molderiasMap?.[v.molderiaid])
+                                  : ""}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewRow(null);
+                                setTimeout(() => openView(v), 100);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#1B3D8F]/20 bg-[#eef2ff] px-2.5 py-1.5 text-xs font-semibold text-[#1B3D8F] transition hover:bg-[#1B3D8F] hover:text-white"
+                            >
+                              <FiEye className="h-3.5 w-3.5" />
+                              Ver
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* QR y botón de impresión */}
             <div>
@@ -1855,19 +1915,22 @@ export const MuestrasPage = () => {
               try {
                 await presentacionesCrud.create({
                   ...presentacionForm,
-                  paresaprobados:
-                    toNumber(presentacionForm.paresaprobados) || 0,
+                  paresaprobados: toNumber(presentacionForm.paresaprobados) || 0,
+                  paresrechazados: toNumber(presentacionForm.paresrechazados) || 0,
                 });
                 toast.success("Presentación creada correctamente");
                 setPresentacionModalOpen(false);
                 // Recargar las presentaciones del modal detalle
                 if (viewRow) {
-                  const presData = await api.get(
-                    `${ENDPOINTS.muestras}/${viewRow.id}/presentaciones`,
-                  );
+                  const isVariation = esMuestraVariacion(viewRow);
+                  const presentacionesEndpoint = isVariation
+                    ? `${ENDPOINTS.variaciones}/${viewRow.id}/presentaciones`
+                    : `${ENDPOINTS.muestras}/${viewRow.id}/presentaciones`;
+                  const presData = await api.get(presentacionesEndpoint);
                   setPresentaciones(Array.isArray(presData) ? presData : []);
                 }
               } catch (err) {
+                console.error("Error creando presentación:", err);
                 toast.error(err.message || "Error al crear presentación");
               } finally {
                 setSavingPresentacion(false);
@@ -2025,6 +2088,154 @@ export const MuestrasPage = () => {
                 className="primary-btn"
               >
                 {savingPresentacion ? "Guardando..." : "Crear presentación"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── MODAL DETALLE / EDICIÓN DE PRESENTACIÓN EXISTENTE ── */}
+      {editingPresentacion && (
+        <Modal
+          title={`Presentación — ${editingPresentacion.cliente?.nombre ||
+            safe(catalogs.clientesMap?.[editingPresentacion.clienteid]) ||
+            "Cliente"
+            }`}
+          onClose={() => setEditingPresentacion(null)}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (savingEditPres) return;
+              setSavingEditPres(true);
+              try {
+                await presentacionesCrud.update(editingPresentacion.id, {
+                  fecha: editingPresentacion.fecha,
+                  resultado: editingPresentacion.resultado,
+                  paresaprobados: toNumber(editingPresentacion.paresaprobados) || 0,
+                  paresrechazados: toNumber(editingPresentacion.paresrechazados) || 0,
+                  derivoproduccion: Boolean(editingPresentacion.derivoproduccion),
+                  observaciones: editingPresentacion.observaciones || "",
+                });
+                toast.success("Presentación actualizada");
+                // Recargar lista
+                if (viewRow) {
+                  const isVariation = esMuestraVariacion(viewRow);
+                  const ep = isVariation
+                    ? `${ENDPOINTS.variaciones}/${viewRow.id}/presentaciones`
+                    : `${ENDPOINTS.muestras}/${viewRow.id}/presentaciones`;
+                  const presData = await api.get(ep);
+                  setPresentaciones(Array.isArray(presData) ? presData : []);
+                }
+                setEditingPresentacion(null);
+              } catch (err) {
+                console.error("Error actualizando presentación:", err);
+                toast.error(err.message || "Error al actualizar presentación");
+              } finally {
+                setSavingEditPres(false);
+              }
+            }}
+            className="space-y-5"
+          >
+            {/* Info de solo lectura */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Referencia</span>
+                <input
+                  type="text" disabled
+                  value={viewRow?.referencia || "—"}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Cliente</span>
+                <input
+                  type="text" disabled
+                  value={
+                    editingPresentacion.cliente?.nombre ||
+                    safe(catalogs.clientesMap?.[editingPresentacion.clienteid]) ||
+                    "—"
+                  }
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600"
+                />
+              </label>
+            </div>
+
+            {/* Campos editables */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Fecha *</span>
+                <input
+                  type="date" required
+                  value={editingPresentacion.fecha?.slice(0, 10) || ""}
+                  onChange={(e) => setEditingPresentacion((p) => ({ ...p, fecha: e.target.value }))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Resultado *</span>
+                <select
+                  required
+                  value={editingPresentacion.resultado || ""}
+                  onChange={(e) => setEditingPresentacion((p) => ({ ...p, resultado: e.target.value }))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                >
+                  <option value="">Selecciona</option>
+                  <option value="aprobada">Aprobada</option>
+                  <option value="producida">Producida</option>
+                  <option value="rechazada">Rechazada</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="parcial">Parcial</option>
+                  <option value="revisar">Revisar</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Pares aprobados</span>
+                <input
+                  type="number" min="0" placeholder="0"
+                  value={editingPresentacion.paresaprobados ?? 0}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditingPresentacion((p) => ({
+                      ...p,
+                      paresaprobados: v,
+                      derivoproduccion: toNumber(v) > 0 ? true : p.derivoproduccion,
+                    }));
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+                />
+              </label>
+            </div>
+
+            <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(editingPresentacion.derivoproduccion)}
+                onChange={(e) => setEditingPresentacion((p) => ({ ...p, derivoproduccion: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-[#1B3D8F]"
+              />
+              <span className="text-sm font-medium text-slate-700">Derivó en producción</span>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Observaciones</span>
+              <textarea
+                rows="3"
+                placeholder="Notas o comentarios adicionales..."
+                value={editingPresentacion.observaciones || ""}
+                onChange={(e) => setEditingPresentacion((p) => ({ ...p, observaciones: e.target.value }))}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
+              />
+            </label>
+
+            <div className="form-actions">
+              <button type="button" className="ghost-btn" onClick={() => setEditingPresentacion(null)}>
+                Cancelar
+              </button>
+              <button type="submit" disabled={savingEditPres} className="primary-btn">
+                {savingEditPres ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </form>
