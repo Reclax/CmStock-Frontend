@@ -232,47 +232,6 @@ const fetchAllMuestras = async () => {
   return allItems;
 };
 
-const InventoryBalanceChart = ({ entradas, salidas, muted = false }) => {
-  const maxValue = Math.max(entradas, salidas, 1);
-  const entradaPct = (entradas / maxValue) * 100;
-  const salidaPct = (salidas / maxValue) * 100;
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
-          <span>Entradas</span>
-          <strong className={muted ? "text-slate-500" : "text-[#1B3D8F]"}>{entradas}</strong>
-        </div>
-        <div className="h-3 rounded-full bg-slate-100">
-          <div
-            className={[
-              "h-3 rounded-full",
-              muted ? "bg-slate-400" : "bg-gradient-to-r from-[#1B3D8F] to-[#2f63da]",
-            ].join(" ")}
-            style={{ width: `${entradaPct}%` }}
-          />
-        </div>
-      </div>
-      <div>
-        <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
-          <span>Salidas</span>
-          <strong className={muted ? "text-slate-500" : "text-[#2550b8]"}>{salidas}</strong>
-        </div>
-        <div className="h-3 rounded-full bg-slate-100">
-          <div
-            className={[
-              "h-3 rounded-full",
-              muted ? "bg-slate-300" : "bg-gradient-to-r from-[#7ca8ff] to-[#2550b8]",
-            ].join(" ")}
-            style={{ width: `${salidaPct}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const CategoryBarsChart = ({ items, muted = false }) => {
   const maxValue = Math.max(...items.map((item) => item.value), 1);
 
@@ -525,7 +484,7 @@ export const DashboardPage = () => {
 
     const totalMuestras = filteredMuestras.length;
     let presentadas = 0;
-    let aprobadas = 0;
+    let paresProducidos = 0;
     const anyDataCount =
       totalMuestras +
       data.presentaciones.length +
@@ -534,16 +493,9 @@ export const DashboardPage = () => {
       data.clientes.length;
 
     const stockMap = {};
-    let entradas = 0;
-    let salidas = 0;
     for (const movimiento of data.movimientos) {
       const id = movimiento.muestraid;
       const cantidad = Number(movimiento.cantidad) || 0;
-      if (movimiento.tipo === "salida") {
-        salidas += cantidad;
-      } else {
-        entradas += cantidad;
-      }
       const delta = movimiento.tipo === "salida" ? -cantidad : cantidad;
       stockMap[id] = (stockMap[id] || 0) + delta;
     }
@@ -552,7 +504,7 @@ export const DashboardPage = () => {
 
     const monthlyMuestras = [...EMPTY_MONTHLY];
     const monthlyPresentadas = [...EMPTY_MONTHLY];
-    const monthlyAprobadas = [...EMPTY_MONTHLY];
+    const monthlyProducidas = [...EMPTY_MONTHLY];
     const yearlyMap = new Map();
 
     for (const item of muestrasWithDate) {
@@ -569,19 +521,31 @@ export const DashboardPage = () => {
         presentadas += 1;
       }
 
-      if (estadoKey === "aprobada") {
-        aprobadas += 1;
-      }
-
       monthlyMuestras[created.getMonth()] += 1;
 
       if (estadoKey === "presentada") {
         monthlyPresentadas[created.getMonth()] += 1;
       }
 
-      if (estadoKey === "aprobada") {
-        monthlyAprobadas[created.getMonth()] += 1;
+    }
+
+    for (const produccion of data.producciones) {
+      const producedPairs = Number(produccion.paresproducidos) || 0;
+      const producedDate = toDate(produccion.fechaproduccion);
+      paresProducidos += producedPairs;
+
+      if (!producedDate) {
+        continue;
       }
+
+      if (
+        selectedYear &&
+        producedDate.getFullYear() !== Number(selectedYear)
+      ) {
+        continue;
+      }
+
+      monthlyProducidas[producedDate.getMonth()] += producedPairs;
     }
 
     const estadoItems = estadoOrder.map((estado) => ({
@@ -600,12 +564,20 @@ export const DashboardPage = () => {
     );
 
     const clienteMap = new Map();
-    for (const item of filteredMuestras) {
-      if (!item.muestra.clienteid) {
+    for (const produccion of data.producciones) {
+      if (!produccion.clienteid) {
         continue;
       }
-      const id = item.muestra.clienteid;
-      clienteMap.set(id, (clienteMap.get(id) || 0) + 1);
+      const producedDate = toDate(produccion.fechaproduccion);
+      if (
+        selectedYear &&
+        (!producedDate || producedDate.getFullYear() !== Number(selectedYear))
+      ) {
+        continue;
+      }
+      const id = produccion.clienteid;
+      const producedPairs = Number(produccion.paresproducidos) || 0;
+      clienteMap.set(id, (clienteMap.get(id) || 0) + producedPairs);
     }
 
     const topClientes = Array.from(clienteMap.entries())
@@ -619,7 +591,7 @@ export const DashboardPage = () => {
     const hasRealData = anyDataCount > 0;
     const enBodegaEstado = estadoCounts.get("en bodega") || 0;
     const otras = Math.max(
-      totalMuestras - presentadas - aprobadas - enBodegaEstado,
+      totalMuestras - presentadas - enBodegaEstado,
       0,
     );
 
@@ -631,15 +603,13 @@ export const DashboardPage = () => {
       hasRealData,
       totalMuestras,
       presentadas,
-      aprobadas,
+      paresProducidos,
       enBodegaEstado,
       otras,
       enBodega,
-      entradas,
-      salidas,
       monthlyMuestras,
       monthlyPresentadas,
-      monthlyAprobadas,
+      monthlyProducidas,
       yearlyMuestras,
       estadoItems,
       topClientes,
@@ -655,10 +625,19 @@ export const DashboardPage = () => {
     [stats.monthlyMuestras],
   );
 
+  const monthlyProduccionItems = useMemo(
+    () =>
+      stats.monthlyProducidas.map((value, index) => ({
+        label: MONTH_NAMES[index],
+        value,
+      })),
+    [stats.monthlyProducidas],
+  );
+
   const donutData = useMemo(
     () => [
       { label: "Presentadas", value: stats.presentadas },
-      { label: "Aprobadas", value: stats.aprobadas },
+      { label: "Producidas", value: stats.paresProducidos },
       { label: "En bodega", value: stats.enBodegaEstado },
       { label: "Otras", value: stats.otras },
     ],
@@ -715,9 +694,9 @@ export const DashboardPage = () => {
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.aprobadas}
-              title="Aprobadas"
-              subtitle="total aprobadas"
+              value={stats.paresProducidos}
+              title="Producidas"
+              subtitle="pares producidos"
               muted={!stats.hasRealData}
             />
             <KpiCard
@@ -785,15 +764,15 @@ export const DashboardPage = () => {
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Presentadas vs aprobadas
+                Presentadas vs producidas
               </h3>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
                 <TwoLineChart
                   firstSeries={stats.monthlyPresentadas}
-                  secondSeries={stats.monthlyAprobadas}
+                  secondSeries={stats.monthlyProducidas}
                   firstLabel="Muestras presentadas"
-                  secondLabel="Muestras aprobadas"
+                  secondLabel="Pares producidos"
                   muted={!stats.hasRealData}
                 />
               </div>
@@ -801,20 +780,6 @@ export const DashboardPage = () => {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Balance de inventario
-              </h3>
-              {!stats.hasRealData && <BadgeNoData />}
-              <div className="mt-4">
-                <InventoryBalanceChart
-                  entradas={stats.entradas}
-                  salidas={stats.salidas}
-                  muted={!stats.hasRealData}
-                />
-              </div>
-            </article>
-
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
                 Estados de muestras
@@ -834,7 +799,20 @@ export const DashboardPage = () => {
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Top clientes por muestras
+                Produccion por mes
+              </h3>
+              {!stats.hasRealData && <BadgeNoData />}
+              <div className="mt-4">
+                <MuestrasBarChart
+                  data={monthlyProduccionItems}
+                  muted={!stats.hasRealData}
+                />
+              </div>
+            </article>
+
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                Top clientes por produccion
               </h3>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
