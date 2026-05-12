@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle,
+  FiFilter,
   FiChevronLeft,
   FiChevronRight,
   FiChevronsLeft,
   FiChevronsRight,
   FiPlus,
+  FiSearch,
+  FiX,
 } from "react-icons/fi";
 import Select from "react-select";
 import { ENDPOINTS } from "../api/endpoints";
@@ -23,6 +26,30 @@ const tabs = [
   { key: "producciones", label: "Producciones" },
 ];
 
+const initialFilters = {
+  presentaciones: {
+    q: "",
+    clienteId: "",
+    resultado: "",
+    dateFrom: "",
+    dateTo: "",
+  },
+  producciones: {
+    q: "",
+    clienteId: "",
+    mes: "",
+    dateFrom: "",
+    dateTo: "",
+  },
+};
+
+const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
+
+const normalizeDateValue = (value) => toDateInput(value);
+
+const inputCls =
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#1B3D8F] focus:bg-white focus:shadow-[0_0_0_3px_rgba(27,61,143,0.08)] placeholder:text-slate-400";
+
 export const HistorialPage = () => {
   const catalogs = useCatalogData();
   const presentaciones = useCrud(ENDPOINTS.presentaciones);
@@ -35,6 +62,8 @@ export const HistorialPage = () => {
   const [form, setForm] = useState({});
   const [rowToDelete, setRowToDelete] = useState(null);
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState(initialFilters);
   const { load: loadPresentaciones } = presentaciones;
   const { load: loadProducciones } = producciones;
   const { load: loadMuestras } = muestras;
@@ -53,7 +82,93 @@ export const HistorialPage = () => {
     setRowToDelete(null);
   }, [tab]);
 
-  const totalPages = Math.ceil((service.items?.length || 0) / PAGE_SIZE);
+  const activeFilters = filters[tab];
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilters, tab]);
+
+  const muestrasMap = useMemo(() => {
+    return Object.fromEntries(
+      muestras.items.map((item) => [item.id, item.referencia]),
+    );
+  }, [muestras.items]);
+
+  const getMuestraLabel = (row) =>
+    row.muestra?.referencia || muestrasMap[row.muestraid] || row.muestraid;
+
+  const filteredRows = useMemo(() => {
+    const rows = service.items || [];
+    const query = normalizeText(activeFilters.q);
+    const from = activeFilters.dateFrom;
+    const to = activeFilters.dateTo;
+
+    return rows.filter((row) => {
+      const rowClienteId = String(row.clienteid ?? "");
+      const rowDate = normalizeDateValue(
+        tab === "presentaciones" ? row.fecha : row.fechaproduccion,
+      );
+
+      if (activeFilters.clienteId && rowClienteId !== activeFilters.clienteId) {
+        return false;
+      }
+
+      if (from && rowDate && rowDate < from) {
+        return false;
+      }
+
+      if (to && rowDate && rowDate > to) {
+        return false;
+      }
+
+      if (tab === "presentaciones") {
+        if (
+          activeFilters.resultado &&
+          normalizeText(row.resultado) !== normalizeText(activeFilters.resultado)
+        ) {
+          return false;
+        }
+
+        if (query) {
+          const haystack = [
+            getMuestraLabel(row),
+            catalogs.clientesMap?.[row.clienteid] ?? row.clienteid,
+            row.resultado,
+            row.observaciones,
+          ]
+            .map(normalizeText)
+            .join(" ");
+
+          if (!haystack.includes(query)) {
+            return false;
+          }
+        }
+      } else {
+        if (activeFilters.mes && normalizeText(row.mes) !== normalizeText(activeFilters.mes)) {
+          return false;
+        }
+
+        if (query) {
+          const haystack = [
+            row.ordennumero,
+            getMuestraLabel(row),
+            catalogs.clientesMap?.[row.clienteid] ?? row.clienteid,
+            row.mes,
+          ]
+            .map(normalizeText)
+            .join(" ");
+
+          if (!haystack.includes(query)) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [activeFilters, catalogs.clientesMap, getMuestraLabel, service.items, tab]);
+
+  const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
 
   useEffect(() => {
     if (!totalPages) {
@@ -65,10 +180,10 @@ export const HistorialPage = () => {
 
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
-    return (service.items || []).slice(start, start + PAGE_SIZE);
-  }, [service.items, page]);
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, page]);
 
-  const totalItems = service.items?.length || 0;
+  const totalItems = filteredRows.length;
   const startIndex = totalItems ? (page - 1) * PAGE_SIZE + 1 : 0;
   const endIndex = Math.min(page * PAGE_SIZE, totalItems);
 
@@ -77,6 +192,37 @@ export const HistorialPage = () => {
     totalPages,
     maxButtons: 8,
   });
+
+  const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilters((prev) => ({
+      ...prev,
+      [tab]: initialFilters[tab],
+    }));
+  };
+
+  const clienteOptions = useMemo(
+    () => catalogs.clientes.map((item) => ({ value: item.id, label: item.nombre })),
+    [catalogs.clientes],
+  );
+
+  const resultadoOptions = [
+    { value: "aprobada", label: "Aprobada" },
+    { value: "pendiente", label: "Pendiente" },
+    { value: "rechazada", label: "Dado de baja" },
+  ];
+
+  const mesOptions = useMemo(() => {
+    const values = new Set();
+    (service.items || []).forEach((row) => {
+      if (row.mes) values.add(String(row.mes).trim());
+    });
+    return Array.from(values)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value }));
+  }, [service.items]);
 
   const openForm = (row = null) => {
     setEditing(row);
@@ -138,15 +284,6 @@ export const HistorialPage = () => {
     return [];
   }, []);
 
-  const muestrasMap = useMemo(() => {
-    return Object.fromEntries(
-      muestras.items.map((item) => [item.id, item.referencia]),
-    );
-  }, [muestras.items]);
-
-  const getMuestraLabel = (row) =>
-    row.muestra?.referencia || muestrasMap[row.muestraid] || row.muestraid;
-
   const columnsByTab = {
     presentaciones: [
       { key: "muestraid", label: "Referencia", render: getMuestraLabel },
@@ -182,6 +319,16 @@ export const HistorialPage = () => {
     ],
   };
 
+  const filterTitle =
+    tab === "presentaciones"
+      ? "Filtrar presentaciones"
+      : "Filtrar producciones";
+
+  const filterPlaceholder =
+    tab === "presentaciones"
+      ? "Buscar por referencia, cliente u observación..."
+      : "Buscar por orden, referencia o cliente...";
+
   return (
     <section className="space-y-5">
       <header className="px-1 py-4 border-b border-slate-200">
@@ -193,16 +340,146 @@ export const HistorialPage = () => {
             Control de presentaciones y producción.
           </p>
         </div>
-        <div className="mt-3 flex justify-center">
+      </header>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <FiSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#1B3D8F] focus:shadow-[0_0_0_3px_rgba(27,61,143,0.08)] placeholder:text-slate-400"
+            placeholder={filterPlaceholder}
+            value={activeFilters.q}
+            onChange={(event) =>
+              setFilters((prev) => ({
+                ...prev,
+                [tab]: { ...prev[tab], q: event.target.value },
+              }))
+            }
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFilters((value) => !value)}
+          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${showFilters || activeFilterCount > 0
+            ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
+            : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
+            }`}
+        >
+          <FiFilter className="h-4 w-4" />
+          Filtros
+          {activeFilterCount > 0 && (
+            <span className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-black text-[#1B3D8F]">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+          onClick={() => openForm()}
+        >
+          <FiPlus className="h-4 w-4" /> Nuevo registro
+        </button>
+        {activeFilterCount > 0 && (
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-            onClick={() => openForm()}
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-100"
           >
-            <FiPlus className="h-4 w-4" /> Nuevo registro
+            <FiX className="h-4 w-4" />
+            Limpiar
           </button>
+        )}
+      </div>
+
+      {showFilters && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            {filterTitle}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <select
+              className={inputCls}
+              value={activeFilters.clienteId}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  [tab]: { ...prev[tab], clienteId: event.target.value },
+                }))
+              }
+            >
+              <option value="">Todos los clientes</option>
+              {clienteOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+
+            {tab === "presentaciones" ? (
+              <select
+                className={inputCls}
+                value={activeFilters.resultado}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    [tab]: { ...prev[tab], resultado: event.target.value },
+                  }))
+                }
+              >
+                <option value="">Todos los resultados</option>
+                {resultadoOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                className={inputCls}
+                value={activeFilters.mes}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    [tab]: { ...prev[tab], mes: event.target.value },
+                  }))
+                }
+              >
+                <option value="">Todos los meses</option>
+                {mesOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <input
+              type="date"
+              className={inputCls}
+              value={activeFilters.dateFrom}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  [tab]: { ...prev[tab], dateFrom: event.target.value },
+                }))
+              }
+            />
+
+            <input
+              type="date"
+              className={inputCls}
+              value={activeFilters.dateTo}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  [tab]: { ...prev[tab], dateTo: event.target.value },
+                }))
+              }
+            />
+          </div>
         </div>
-      </header>
+      )}
 
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {tabs.map((item) => (
