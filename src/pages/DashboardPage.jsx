@@ -338,6 +338,7 @@ export const DashboardPage = () => {
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
+      muestrasPorCliente: [],
       presentaciones: [],
       producciones: [],
       movimientos: [],
@@ -359,17 +360,25 @@ export const DashboardPage = () => {
 
     setError("");
     try {
-      const [muestras, presentaciones, producciones, movimientos, clientes] =
-        await Promise.all([
-          fetchAllMuestras(),
-          api.get(ENDPOINTS.presentaciones),
-          api.get(ENDPOINTS.producciones),
-          api.get(ENDPOINTS.movimientosInventario),
-          api.get(ENDPOINTS.clientes),
-        ]);
+      const [
+        muestras,
+        muestrasPorCliente,
+        presentaciones,
+        producciones,
+        movimientos,
+        clientes,
+      ] = await Promise.all([
+        fetchAllMuestras(),
+        api.get(`${ENDPOINTS.muestras}/consultas/muestras-por-cliente`),
+        api.get(ENDPOINTS.presentaciones),
+        api.get(ENDPOINTS.producciones),
+        api.get(ENDPOINTS.movimientosInventario),
+        api.get(ENDPOINTS.clientes),
+      ]);
 
       const newData = {
         muestras: toCollection(muestras),
+        muestrasPorCliente: toCollection(muestrasPorCliente),
         presentaciones: toCollection(presentaciones),
         producciones: toCollection(producciones),
         movimientos: toCollection(movimientos),
@@ -588,6 +597,14 @@ export const DashboardPage = () => {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
+    const topClientesMuestras = data.muestrasPorCliente
+      .map((item) => ({
+        label: item.nombre || `Cliente ${String(item.id).slice(0, 4)}`,
+        value: Number(item.cantidadMuestras) || 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
     const hasRealData = anyDataCount > 0;
     const enBodegaEstado = estadoCounts.get("en bodega") || 0;
     const otras = Math.max(
@@ -613,6 +630,7 @@ export const DashboardPage = () => {
       yearlyMuestras,
       estadoItems,
       topClientes,
+      topClientesMuestras,
     };
   }, [data, selectedYear]);
 
@@ -625,14 +643,6 @@ export const DashboardPage = () => {
     [stats.monthlyMuestras],
   );
 
-  const monthlyProduccionItems = useMemo(
-    () =>
-      stats.monthlyProducidas.map((value, index) => ({
-        label: MONTH_NAMES[index],
-        value,
-      })),
-    [stats.monthlyProducidas],
-  );
 
   const donutData = useMemo(
     () => [
@@ -799,12 +809,16 @@ export const DashboardPage = () => {
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Produccion por mes
+                Top clientes por muestras
               </h3>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
-                <MuestrasBarChart
-                  data={monthlyProduccionItems}
+                <CategoryBarsChart
+                  items={
+                    stats.topClientesMuestras.length
+                      ? stats.topClientesMuestras
+                      : [{ label: "Sin registros", value: 0 }]
+                  }
                   muted={!stats.hasRealData}
                 />
               </div>

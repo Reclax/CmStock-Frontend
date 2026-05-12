@@ -173,7 +173,7 @@ export const AdministracionPage = () => {
   const onSave = async (e) => {
     e.preventDefault();
 
-    const payload = { ...form };
+    let payload = { ...form };
 
     if (tab === "usuarios" && !payload.password) {
       delete payload.password;
