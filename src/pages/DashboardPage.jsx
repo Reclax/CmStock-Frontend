@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   BarChart,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -50,13 +54,6 @@ const toCollection = (payload) => {
   return [];
 };
 
-const formatLongDate = (value) =>
-  new Intl.DateTimeFormat("es-CO", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(value);
 
 const KpiCard = ({ value, title, subtitle, muted = false }) => (
   <article
@@ -116,6 +113,22 @@ const capitalize = (value) => {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 };
 
+const normalizePresentacionEstado = (value) => {
+  const normalized = normalizeEstado(value);
+  if (normalized === "rechazada") {
+    return "dada de baja";
+  }
+  return normalized;
+};
+
+const normalizeMuestraEstado = (value) => {
+  const normalized = normalizeEstado(value);
+  if (normalized === "rechazada") {
+    return "dada de baja";
+  }
+  return normalized;
+};
+
 const MuestrasBarChart = ({ data, muted = false }) => {
   const fill = muted ? "#cbd5e1" : "#1B3D8F";
 
@@ -151,64 +164,6 @@ const MuestrasBarChart = ({ data, muted = false }) => {
   );
 };
 
-const TwoLineChart = ({ firstSeries, secondSeries, firstLabel, secondLabel, muted = false }) => {
-  const width = 420;
-  const height = 170;
-  const padding = 20;
-  const maxValue = Math.max(...firstSeries, ...secondSeries, 1);
-
-  const toPoints = (series) =>
-    series
-      .map((value, index) => {
-        const x = padding + (index * (width - padding * 2)) / (series.length - 1);
-        const y =
-          height -
-          padding -
-          (value / maxValue) * (height - padding * 2);
-        return `${x},${y}`;
-      })
-      .join(" ");
-
-  const firstColor = muted ? "#94a3b8" : "#1B3D8F";
-  const secondColor = muted ? "#cbd5e1" : "#4f8df2";
-
-  return (
-    <div className="space-y-3">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2"
-        role="img"
-        aria-label="Comparativo mensual"
-      >
-        <polyline
-          fill="none"
-          stroke={firstColor}
-          strokeWidth="3"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          points={toPoints(firstSeries)}
-        />
-        <polyline
-          fill="none"
-          stroke={secondColor}
-          strokeWidth="3"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          points={toPoints(secondSeries)}
-        />
-      </svg>
-      <div className="flex flex-wrap gap-4 text-xs font-semibold uppercase tracking-[0.08em]">
-        <span className={muted ? "text-slate-500" : "text-[#1B3D8F]"}>
-          {firstLabel || "Muestras presentadas"}
-        </span>
-        <span className={muted ? "text-slate-500" : "text-[#2f63da]"}>
-          {secondLabel || "Muestras vendidas"}
-        </span>
-      </div>
-    </div>
-  );
-};
-
 const fetchAllMuestras = async () => {
   let page = 1;
   let totalPages = 1;
@@ -232,38 +187,108 @@ const fetchAllMuestras = async () => {
   return allItems;
 };
 
-const CategoryBarsChart = ({ items, muted = false }) => {
-  const maxValue = Math.max(...items.map((item) => item.value), 1);
+const CategoryList = ({ items, muted = false, onSelect, activeKey }) => (
+  <ul className="m-0 list-none space-y-2 p-0">
+    {items.map((item) => {
+      const isActive = activeKey && item.key === activeKey;
+      const baseCls = muted ? "text-slate-500" : "text-slate-700";
+      return (
+        <li
+          key={item.label}
+          className="text-sm"
+        >
+          <button
+            type="button"
+            onClick={onSelect ? () => onSelect(item) : undefined}
+            disabled={!onSelect || !item.key}
+            className={[
+              "flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-left transition focus:outline-none focus-visible:outline-none",
+              baseCls,
+              onSelect && item.key
+                ? "hover:bg-slate-100 hover:text-[#1B3D8F]"
+                : "cursor-default",
+              isActive ? "font-semibold text-[#1B3D8F] bg-slate-100" : "",
+            ].join(" ")}
+          >
+            <span>{item.label}</span>
+            <strong className={muted ? "text-slate-500" : "text-slate-900"}>{item.value}</strong>
+          </button>
+        </li>
+      );
+    })}
+  </ul>
+);
+
+const PresentacionPieChart = ({ data, muted = false }) => {
+  const palette = muted
+    ? ["#cbd5e1", "#e2e8f0", "#94a3b8"]
+    : ["#1B3D8F", "#4f8df2", "#8fb8ff"];
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (!percent || percent < 0.04) {
+      return null;
+    }
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const rad = (-midAngle * Math.PI) / 180;
+    const x = cx + radius * Math.cos(rad);
+    const y = cy + radius * Math.sin(rad);
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#fff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="11"
+        fontWeight="600"
+      >
+        {`${Math.round(percent * 100)}%`}
+      </text>
+    );
+  };
 
   return (
-    <ul className="m-0 list-none space-y-3 p-0">
-      {items.map((item, index) => {
-        const widthPct = (item.value / maxValue) * 100;
-        return (
-          <li key={item.label} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className={muted ? "text-slate-500" : "text-slate-700"}>{item.label}</span>
-              <strong className={muted ? "text-slate-500" : "text-slate-900"}>{item.value}</strong>
-            </div>
-            <div className="h-2.5 rounded-full bg-slate-100">
-              <div
-                className={[
-                  "h-2.5 rounded-full",
-                  muted
-                    ? ["bg-slate-400", "bg-slate-300", "bg-slate-500"][index % 3]
-                    : ["bg-[#1B3D8F]", "bg-[#2f63da]", "bg-[#7ca8ff]"][index % 3],
-                ].join(" ")}
-                style={{ width: `${widthPct}%` }}
-              />
-            </div>
+    <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="h-52 w-full outline-none" style={{ outline: "none" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="label"
+              innerRadius={0}
+              outerRadius="85%"
+              paddingAngle={2}
+              labelLine={false}
+              label={renderLabel}
+            >
+              {data.map((entry, index) => (
+                <Cell
+                  key={entry.label}
+                  fill={palette[index % palette.length]}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="m-0 list-none space-y-2 p-0 text-sm">
+        {data.map((item, index) => (
+          <li key={item.label} className="flex items-center gap-2">
+            <span
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ background: palette[index % palette.length] }}
+            />
+            <span className={muted ? "text-slate-500" : "text-slate-700"}>
+              {item.label}: {item.value}
+            </span>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </div>
   );
 };
 
-const DonutChart = ({ values, muted = false }) => {
+const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
   const total = values.reduce((acc, item) => acc + item.value, 0);
 
   if (total <= 0) {
@@ -312,13 +337,25 @@ const DonutChart = ({ values, muted = false }) => {
           const dotPalette = muted
             ? ["bg-slate-400", "bg-slate-300", "bg-slate-500", "bg-slate-200"]
             : ["bg-[#1B3D8F]", "bg-[#2f63da]", "bg-[#4f8df2]", "bg-[#8fb8ff]"];
+          const isActive = activeKey && item.key === activeKey;
 
           return (
             <li key={item.label} className="flex items-center gap-2 text-slate-700">
-              <span className={`h-3 w-3 rounded-full ${dotPalette[index % dotPalette.length]}`} />
-              <span className={muted ? "text-slate-500" : "text-slate-700"}>
+              <button
+                type="button"
+                onClick={onSelect ? () => onSelect(item) : undefined}
+                className={[
+                  "flex items-center gap-2 text-left transition focus:outline-none focus-visible:outline-none",
+                  muted ? "text-slate-500" : "text-slate-700",
+                  onSelect ? "hover:text-[#1B3D8F]" : "cursor-default",
+                  isActive ? "font-semibold text-[#1B3D8F]" : "",
+                ].join(" ")}
+              >
+                <span
+                  className={`h-3 w-3 rounded-full ${dotPalette[index % dotPalette.length]}`}
+                />
                 {item.label}: {item.value}
-              </span>
+              </button>
             </li>
           );
         })}
@@ -329,12 +366,15 @@ const DonutChart = ({ values, muted = false }) => {
 
 let globalDashboardCache = null;
 let globalDashboardCacheTime = 0;
-const CACHE_FRESHNESS_MS = 1000 * 120; // 2 minutos
+const CACHE_FRESHNESS_MS = 1000 * 30; // 30 segundos
 
 export const DashboardPage = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(!globalDashboardCache);
   const [error, setError] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMuestraEstado, setSelectedMuestraEstado] = useState("");
+  const [selectedClienteId, setSelectedClienteId] = useState("");
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
@@ -450,24 +490,16 @@ export const DashboardPage = () => {
   const stats = useMemo(() => {
     const estadoCounts = new Map();
     const estadoOrder = [
-      "presentada",
-      "aprobada",
-      "en molderia",
-      "en diseno",
       "pendiente",
-      "en proceso",
-      "en bodega",
-      "en revision",
+      "no presentado",
+      "aprobada",
+      "dada de baja",
     ];
     const estadoLabels = {
-      presentada: "Presentada",
-      aprobada: "Aprobada",
-      "en molderia": "En molderia",
-      "en diseno": "En diseño",
-      pendiente: "Pendiente",
-      "en proceso": "En proceso",
-      "en bodega": "En bodega",
-      "en revision": "En revisión",
+      pendiente: "Presentadas",
+      "no presentado": "No presentadas",
+      aprobada: "Aprobadas",
+      "dada de baja": "Dadas de baja",
     };
 
     const muestrasWithDate = [];
@@ -485,15 +517,30 @@ export const DashboardPage = () => {
       }
     }
 
-    const filteredMuestras = selectedYear
-      ? muestrasWithDate.filter(
-          (item) => item.created.getFullYear() === Number(selectedYear),
-        )
-      : muestrasWithDate;
+    const filteredMuestras = muestrasWithDate.filter((item) => {
+      if (selectedYear && item.created.getFullYear() !== Number(selectedYear)) {
+        return false;
+      }
+
+      if (selectedClienteId && item.muestra.clienteid !== selectedClienteId) {
+        return false;
+      }
+
+      if (selectedMuestraEstado) {
+        const estadoKey = normalizeMuestraEstado(item.muestra.estado);
+        if (estadoKey !== selectedMuestraEstado) {
+          return false;
+        }
+      }
+
+      return true;
+    });
 
     const totalMuestras = filteredMuestras.length;
     let presentadas = 0;
-    let paresProducidos = 0;
+    let noPresentadas = 0;
+    let aprobadas = 0;
+    let dadasDeBaja = 0;
     const anyDataCount =
       totalMuestras +
       data.presentaciones.length +
@@ -512,8 +559,6 @@ export const DashboardPage = () => {
     const enBodega = Object.values(stockMap).filter((value) => value > 0).length;
 
     const monthlyMuestras = [...EMPTY_MONTHLY];
-    const monthlyPresentadas = [...EMPTY_MONTHLY];
-    const monthlyProducidas = [...EMPTY_MONTHLY];
     const yearlyMap = new Map();
 
     for (const item of muestrasWithDate) {
@@ -523,54 +568,74 @@ export const DashboardPage = () => {
 
     for (const item of filteredMuestras) {
       const { muestra, created } = item;
-      const estadoKey = normalizeEstado(muestra.estado);
+      const estadoKey = normalizeMuestraEstado(muestra.estado);
       estadoCounts.set(estadoKey, (estadoCounts.get(estadoKey) || 0) + 1);
 
-      if (estadoKey === "presentada") {
+      if (estadoKey === "pendiente" || estadoKey === "presentada") {
         presentadas += 1;
       }
 
+      if (estadoKey === "no presentado") {
+        noPresentadas += 1;
+      }
+
+      if (estadoKey === "aprobada") {
+        aprobadas += 1;
+      }
+
+      if (estadoKey === "dada de baja") {
+        dadasDeBaja += 1;
+      }
+
       monthlyMuestras[created.getMonth()] += 1;
-
-      if (estadoKey === "presentada") {
-        monthlyPresentadas[created.getMonth()] += 1;
-      }
-
-    }
-
-    for (const produccion of data.producciones) {
-      const producedPairs = Number(produccion.paresproducidos) || 0;
-      const producedDate = toDate(produccion.fechaproduccion);
-      paresProducidos += producedPairs;
-
-      if (!producedDate) {
-        continue;
-      }
-
-      if (
-        selectedYear &&
-        producedDate.getFullYear() !== Number(selectedYear)
-      ) {
-        continue;
-      }
-
-      monthlyProducidas[producedDate.getMonth()] += producedPairs;
     }
 
     const estadoItems = estadoOrder.map((estado) => ({
       label: estadoLabels[estado] || capitalize(estado),
       value: estadoCounts.get(estado) || 0,
+      key: estado,
     }));
 
     for (const [estado, value] of estadoCounts.entries()) {
       if (!estadoOrder.includes(estado)) {
-        estadoItems.push({ label: capitalize(estado), value });
+        estadoItems.push({ label: capitalize(estado), value, key: estado });
       }
     }
 
     const clienteNameById = new Map(
       data.clientes.map((cliente) => [cliente.id, cliente.nombre || "Cliente"]),
     );
+
+    const presentacionesFiltered = data.presentaciones.filter((presentacion) => {
+      if (selectedClienteId && presentacion.clienteid !== selectedClienteId) {
+        return false;
+      }
+      const created = toDate(presentacion.fecha);
+      if (selectedYear && (!created || created.getFullYear() !== Number(selectedYear))) {
+        return false;
+      }
+
+      return true;
+    });
+
+    const presentacionCounts = {
+      aprobada: 0,
+      pendiente: 0,
+      "dada de baja": 0,
+    };
+
+    for (const presentacion of presentacionesFiltered) {
+      const estadoKey = normalizePresentacionEstado(presentacion.resultado);
+      if (presentacionCounts[estadoKey] !== undefined) {
+        presentacionCounts[estadoKey] += 1;
+      }
+    }
+
+    const presentacionItems = [
+      { key: "aprobada", label: "Aprobadas", value: presentacionCounts.aprobada },
+      { key: "pendiente", label: "Pendientes", value: presentacionCounts.pendiente },
+      { key: "dada de baja", label: "Dadas de baja", value: presentacionCounts["dada de baja"] },
+    ];
 
     const clienteMap = new Map();
     for (const produccion of data.producciones) {
@@ -584,6 +649,9 @@ export const DashboardPage = () => {
       ) {
         continue;
       }
+      if (selectedClienteId && produccion.clienteid !== selectedClienteId) {
+        continue;
+      }
       const id = produccion.clienteid;
       const producedPairs = Number(produccion.paresproducidos) || 0;
       clienteMap.set(id, (clienteMap.get(id) || 0) + producedPairs);
@@ -592,23 +660,31 @@ export const DashboardPage = () => {
     const topClientes = Array.from(clienteMap.entries())
       .map(([id, value]) => ({
         label: clienteNameById.get(id) || `Cliente ${id.slice(0, 4)}`,
+        key: id,
         value,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    const topClientesMuestras = data.muestrasPorCliente
-      .map((item) => ({
-        label: item.nombre || `Cliente ${String(item.id).slice(0, 4)}`,
-        value: Number(item.cantidadMuestras) || 0,
+    const clienteMuestrasMap = new Map();
+    for (const item of filteredMuestras) {
+      const id = item.muestra.clienteid;
+      if (!id) continue;
+      clienteMuestrasMap.set(id, (clienteMuestrasMap.get(id) || 0) + 1);
+    }
+
+    const topClientesMuestras = Array.from(clienteMuestrasMap.entries())
+      .map(([id, value]) => ({
+        label: clienteNameById.get(id) || `Cliente ${String(id).slice(0, 4)}`,
+        key: id,
+        value,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
     const hasRealData = anyDataCount > 0;
-    const enBodegaEstado = estadoCounts.get("en bodega") || 0;
     const otras = Math.max(
-      totalMuestras - presentadas - enBodegaEstado,
+      totalMuestras - presentadas - noPresentadas - aprobadas - dadasDeBaja,
       0,
     );
 
@@ -620,19 +696,24 @@ export const DashboardPage = () => {
       hasRealData,
       totalMuestras,
       presentadas,
-      paresProducidos,
-      enBodegaEstado,
+      noPresentadas,
+      aprobadas,
+      dadasDeBaja,
       otras,
       enBodega,
       monthlyMuestras,
-      monthlyPresentadas,
-      monthlyProducidas,
       yearlyMuestras,
       estadoItems,
       topClientes,
       topClientesMuestras,
+      presentacionItems,
     };
-  }, [data, selectedYear]);
+  }, [
+    data,
+    selectedYear,
+    selectedMuestraEstado,
+    selectedClienteId,
+  ]);
 
   const monthlyItems = useMemo(
     () =>
@@ -643,26 +724,45 @@ export const DashboardPage = () => {
     [stats.monthlyMuestras],
   );
 
-
   const donutData = useMemo(
     () => [
-      { label: "Presentadas", value: stats.presentadas },
-      { label: "Producidas", value: stats.paresProducidos },
-      { label: "En bodega", value: stats.enBodegaEstado },
-      { label: "Otras", value: stats.otras },
+      { key: "pendiente", label: "Presentadas", value: stats.presentadas },
+      { key: "no presentado", label: "No presentadas", value: stats.noPresentadas },
+      { key: "aprobada", label: "Aprobadas", value: stats.aprobadas },
+      { key: "dada de baja", label: "Dadas de baja", value: stats.dadasDeBaja },
     ],
     [stats],
   );
 
-  const currentDateLabel = useMemo(() => formatLongDate(new Date()), []);
+  const presentacionPieData = useMemo(
+    () => stats.presentacionItems || [],
+    [stats.presentacionItems],
+  );
+
+  const toggleMuestraEstado = (item) => {
+    if (!item?.key) return;
+    setSelectedMuestraEstado((prev) => (prev === item.key ? "" : item.key));
+  };
+
+  const toggleCliente = (item) => {
+    if (!item?.key) return;
+    setSelectedClienteId((prev) => (prev === item.key ? "" : item.key));
+  };
+
+  const clearDashboardFilters = () => {
+    setSelectedYear("");
+    setSelectedMuestraEstado("");
+    setSelectedClienteId("");
+  };
+
+  const hasActiveFilters = Boolean(
+    selectedYear || selectedMuestraEstado || selectedClienteId,
+  );
 
   return (
     <section className="space-y-5">
       <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
-          <p className="text-xs text-slate-500">
-            {currentDateLabel}
-          </p>
           <h1 className="text-[clamp(1.6rem,2.2vw,2rem)] font-extrabold text-[#1B3D8F] tracking-[-0.02em]">
             Dashboard estratégico
           </h1>
@@ -670,16 +770,37 @@ export const DashboardPage = () => {
             Seguimiento de muestras, presentación, ventas y estado de bodega con lectura ejecutiva.
           </p>
         </div>
-        <div className="mt-3 flex justify-center">
+      </header>
+
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-[0.08em] text-slate-500">
+            Filtros activos
+          </span>
+          {selectedMuestraEstado && (
+            <span className="rounded-full bg-white px-2 py-1 text-slate-600">
+              Muestra: {capitalize(selectedMuestraEstado)}
+            </span>
+          )}
+          {selectedYear && (
+            <span className="rounded-full bg-white px-2 py-1 text-slate-600">
+              Ano: {selectedYear}
+            </span>
+          )}
+          {selectedClienteId && (
+            <span className="rounded-full bg-white px-2 py-1 text-slate-600">
+              Cliente seleccionado
+            </span>
+          )}
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-            onClick={() => load(true)}
+            onClick={clearDashboardFilters}
+            className="ml-auto rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
           >
-            Actualizar
+            Limpiar
           </button>
         </div>
-      </header>
+      )}
 
       {loading && <AppLoading message="Cargando panel principal..." />}
       {error && (
@@ -690,7 +811,7 @@ export const DashboardPage = () => {
 
       {!loading && !error && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <KpiCard
               value={stats.totalMuestras}
               title="Total Muestras"
@@ -700,28 +821,43 @@ export const DashboardPage = () => {
             <KpiCard
               value={stats.presentadas}
               title="Presentadas"
-              subtitle={`de ${stats.totalMuestras} elaboradas`}
+              subtitle="referencia ok"
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.paresProducidos}
-              title="Producidas"
-              subtitle="pares producidos"
+              value={stats.noPresentadas}
+              title="No presentadas"
+              subtitle="en inventario"
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.enBodega}
-              title="En Bodega"
-              subtitle="disponibles a reutilizar"
+              value={stats.presentacionItems?.[0]?.value || 0}
+              title="Orden de produccion"
+              subtitle="aprobadas"
+              muted={!stats.hasRealData}
+            />
+            <KpiCard
+              value={stats.presentacionItems?.[2]?.value || 0}
+              title="Dadas de baja"
+              subtitle="no aprobadas"
               muted={!stats.hasRealData}
             />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                {selectedYear ? "Muestras por mes" : "Muestras por año"}
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  {selectedYear ? "Muestras por mes" : "Muestras por año"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/muestras")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
                 <label className="text-slate-500">Año</label>
@@ -747,7 +883,7 @@ export const DashboardPage = () => {
                   )}
                 </div>
               )}
-              <div className="mt-4">
+              <div className="mt-4 pointer-events-none">
                 {selectedYear ? (
                   <MuestrasBarChart
                     data={monthlyItems}
@@ -763,26 +899,46 @@ export const DashboardPage = () => {
             </article>
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Distribución operativa
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  Distribución operativa
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/muestras")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
-                <DonutChart values={donutData} muted={!stats.hasRealData} />
+                <DonutChart
+                  values={donutData}
+                  muted={!stats.hasRealData}
+                  onSelect={toggleMuestraEstado}
+                  activeKey={selectedMuestraEstado}
+                />
               </div>
             </article>
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Presentadas vs producidas
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  Presentaciones
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/historial")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
-              <div className="mt-4">
-                <TwoLineChart
-                  firstSeries={stats.monthlyPresentadas}
-                  secondSeries={stats.monthlyProducidas}
-                  firstLabel="Muestras presentadas"
-                  secondLabel="Pares producidos"
+              <div className="mt-4 pointer-events-none">
+                <PresentacionPieChart
+                  data={presentacionPieData}
                   muted={!stats.hasRealData}
                 />
               </div>
@@ -791,52 +947,85 @@ export const DashboardPage = () => {
 
           <div className="grid gap-4 lg:grid-cols-3">
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Estados de muestras
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  Estados de muestras
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/muestras")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
-                <CategoryBarsChart
+                <CategoryList
                   items={
                     stats.estadoItems.length
                       ? stats.estadoItems
                       : [{ label: "Sin registros", value: 0 }]
                   }
                   muted={!stats.hasRealData}
+                  onSelect={toggleMuestraEstado}
+                  activeKey={selectedMuestraEstado}
                 />
               </div>
             </article>
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Top clientes por muestras
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  Top clientes por muestras
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/reportes")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
-                <CategoryBarsChart
+                <CategoryList
                   items={
                     stats.topClientesMuestras.length
                       ? stats.topClientesMuestras
                       : [{ label: "Sin registros", value: 0 }]
                   }
                   muted={!stats.hasRealData}
+                  onSelect={toggleCliente}
+                  activeKey={selectedClienteId}
                 />
               </div>
             </article>
 
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                Top clientes por produccion
-              </h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
+                  Top clientes por produccion
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => navigate("/historial")}
+                  className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
+                >
+                  Ver mas
+                </button>
+              </div>
               {!stats.hasRealData && <BadgeNoData />}
               <div className="mt-4">
-                <CategoryBarsChart
+                <CategoryList
                   items={
                     stats.topClientes.length
                       ? stats.topClientes
                       : [{ label: "Sin registros", value: 0 }]
                   }
                   muted={!stats.hasRealData}
+                  onSelect={toggleCliente}
+                  activeKey={selectedClienteId}
                 />
               </div>
             </article>
