@@ -1032,7 +1032,7 @@ export const MuestrasPage = () => {
               value={filters.mes}
               onChange={(e) => handleMesChange(e.target.value)}
             >
-              <option value="">Mes de elaboración</option>
+              <option value="">Todos los meses</option>
               {MESES.map((nombre, i) => (
                 <option key={i + 1} value={String(i + 1)}>
                   {nombre}
