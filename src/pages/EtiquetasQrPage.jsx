@@ -1,6 +1,11 @@
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useEffect, useRef, useState } from "react";
-import { FiCamera, FiXCircle, FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
+import {
+  FiAlertTriangle,
+  FiCamera,
+  FiCheckCircle,
+  FiXCircle,
+} from "react-icons/fi";
 
 const QR_PREFIX = "CMSTOCK:";
 
@@ -119,7 +124,7 @@ export const EtiquetasQrPage = () => {
             Escaner QR
           </h1>
           <p className="text-sm text-slate-500 max-w-lg">
-            Activa la camara para leer etiquetas QR de las muestras.
+            Activa la camara para leer etiquetas QR de los segmentos.
           </p>
         </div>
       </header>
@@ -131,10 +136,14 @@ export const EtiquetasQrPage = () => {
             <h3>Escaneo rapido</h3>
           </div>
           <p className="muted-text">
-            Usa la camara del dispositivo para leer el QR completo de la muestra.
+            Usa la camara del dispositivo para leer el QR completo del segmento.
           </p>
           <div className="mt-4 overflow-hidden rounded-[18px] border border-slate-200 bg-[#0b1020]">
-            <video ref={videoRef} className="h-full w-full object-cover min-h-[320px]" muted />
+            <video
+              ref={videoRef}
+              className="h-full w-full object-cover min-h-[320px]"
+              muted
+            />
           </div>
 
           <div className="button-row qr-actions-row flex gap-2">
