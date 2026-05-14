@@ -49,6 +49,10 @@ const emptyForm = {
 
 const ESTADO_META = {
   nueva: { label: "Nueva", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  "no presentado": {
+    label: "No presentado",
+    cls: "bg-slate-50 text-slate-600 border-slate-200",
+  },
   pendiente: {
     label: "Pendiente",
     cls: "bg-orange-50 text-orange-700 border-orange-200",
@@ -69,7 +73,7 @@ const ESTADO_META = {
     label: "Reutilizable",
     cls: "bg-amber-50 text-amber-700 border-amber-200",
   },
-  dada_de_baja: {
+  "dada de baja": {
     label: "Dada de baja",
     cls: "bg-slate-100 text-slate-500 border-slate-200",
   },
@@ -87,6 +91,21 @@ const esMuestraVariacion = (row) => {
   if (!row) return false;
   if (row.variacion === true) return true;
   return String(row.estado || "").trim().toLowerCase() === "variacion";
+};
+
+const formatearReferenciaVariacion = (row) => {
+  if (!row) return "—";
+
+  const referencia = String(row.referencia || "").trim();
+  if (referencia) return referencia;
+
+  const base = String(row.muestraOriginal?.referencia || "").trim();
+  const numero = String(row.orden || "").trim();
+  if (base && numero) {
+    return `${base} ${numero}`;
+  }
+
+  return "—";
 };
 
 const EstadoBadge = ({ estado }) => {
@@ -150,6 +169,7 @@ export const MuestrasPage = () => {
     molderia: "",
     molderiaid: "",
     disenadorid: "",
+    mes: "",
     from: "",
     to: "",
   });
@@ -207,12 +227,14 @@ export const MuestrasPage = () => {
   const [molderiaPromptOpen, setMolderiaPromptOpen] = useState(false);
   const [newMolderiaName, setNewMolderiaName] = useState("");
   const [creatingMolderia, setCreatingMolderia] = useState(false);
+  const [molderiaInputValue, setMolderiaInputValue] = useState("");
 
   // ── Estado de Guardado ──
   const [isSaving, setIsSaving] = useState(false);
 
   const [dbDimaValues, setDbDimaValues] = useState([]);
   const [dbProcesoValues, setDbProcesoValues] = useState([]);
+  const [dbSegmentoValues, setDbSegmentoValues] = useState([]);
 
   const fetchRows = useCallback(async (activeFilters, activePage) => {
     setLoadingRows(true);
@@ -240,8 +262,13 @@ export const MuestrasPage = () => {
       if (activeFilters.licenciado !== "")
         params.set("licenciado", activeFilters.licenciado);
       if (activeFilters.dima) params.set("dima", activeFilters.dima);
-      if (activeFilters.from) params.set("fechadesde", activeFilters.from);
-      if (activeFilters.to) params.set("fechahasta", activeFilters.to);
+      // Filtro por mes tiene prioridad sobre rango from/to
+      if (activeFilters.mes) {
+        params.set("mes", activeFilters.mes);
+      } else {
+        if (activeFilters.from) params.set("fechadesde", activeFilters.from);
+        if (activeFilters.to) params.set("fechahasta", activeFilters.to);
+      }
       const payload = await api.get(
         `${ENDPOINTS.muestras}?${params.toString()}`,
       );
@@ -285,12 +312,15 @@ export const MuestrasPage = () => {
         const data = toCollection(payload);
         const dimaSet = new Set();
         const procesoSet = new Set();
+        const segmentoSet = new Set();
         data.forEach((row) => {
           if (row.dima) dimaSet.add(String(row.dima).trim());
           if (row.proceso) procesoSet.add(String(row.proceso).trim());
+          if (row.segmento) segmentoSet.add(String(row.segmento).trim());
         });
         setDbDimaValues(Array.from(dimaSet).filter(Boolean));
         setDbProcesoValues(Array.from(procesoSet).filter(Boolean));
+        setDbSegmentoValues(Array.from(segmentoSet).filter(Boolean));
       } catch {
         setDbDimaValues([]);
         setDbProcesoValues([]);
@@ -373,6 +403,18 @@ export const MuestrasPage = () => {
     [procesoOptions],
   );
 
+  const segmentoSelectOptions = useMemo(() => {
+    const values = new Set();
+    dbSegmentoValues.forEach((v) => values.add(String(v).trim()));
+    rows.forEach((row) => {
+      if (row.segmento) values.add(String(row.segmento).trim());
+    });
+    return Array.from(values)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
+  }, [dbSegmentoValues, rows]);
+
   const totalPages = Math.ceil(totalItems / PAGE_SIZE);
   const startIndex = totalItems ? (page - 1) * PAGE_SIZE + 1 : 0;
   const endIndex = Math.min(page * PAGE_SIZE, totalItems);
@@ -383,7 +425,8 @@ export const MuestrasPage = () => {
   });
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
-  const clearFilters = () =>
+  const clearFilters = () => {
+    setMolderiaInputValue("");
     setFilters({
       q: "",
       estado: "",
@@ -395,9 +438,26 @@ export const MuestrasPage = () => {
       molderia: "",
       molderiaid: "",
       disenadorid: "",
+      mes: "",
       from: "",
       to: "",
     });
+  };
+
+  const MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+
+  /** Recibe el número de mes 1-12 (string) o "" para limpiar */
+  const handleMesChange = (mesNum) => {
+    if (!mesNum) {
+      setFilters((p) => ({ ...p, mes: "", from: "", to: "" }));
+      return;
+    }
+    // Solo setea mes; el backend usa EXTRACT(MONTH) para filtrar sin importar el año
+    setFilters((p) => ({ ...p, mes: mesNum, from: "", to: "" }));
+  };
 
   const stopCamera = () => {
     if (cameraStream) {
@@ -615,6 +675,7 @@ export const MuestrasPage = () => {
       toast.error(err.message || "Error al eliminar");
     }
   };
+
   const openView = async (row) => {
     const ownerId = row.id;
     const isVariation = esMuestraVariacion(row);
@@ -628,40 +689,49 @@ export const MuestrasPage = () => {
     setLoadingViewPhotos(true);
     setLoadingVariaciones(!isVariation);
     try {
-      // Usar endpoint correcto según si es muestra o variación
       const presentacionesEndpoint = isVariation
         ? `${ENDPOINTS.variaciones}/${ownerId}/presentaciones`
         : `${ENDPOINTS.muestras}/${ownerId}/presentaciones`;
 
-      const [presData, fotosData, todasMuestras] = await Promise.all([
-        api.get(presentacionesEndpoint),
-        api.get(`${ENDPOINTS.fotos}?muestraid=${ownerId}`),
-        isVariation
-          ? Promise.resolve([])
-          : api.get(
-            `${ENDPOINTS.variaciones}?muestraOriginalId=${ownerId}&page=1&limit=5000`,
-          ),
-      ]);
-      setPresentaciones(Array.isArray(presData) ? presData : []);
-      setViewPhotos(Array.isArray(fotosData) ? fotosData : []);
+      const [presResult, fotosResult, variacionesResult] =
+        await Promise.allSettled([
+          api.get(presentacionesEndpoint),
+          api.get(`${ENDPOINTS.fotos}?muestraid=${ownerId}`),
+          isVariation
+            ? Promise.resolve([])
+            : api.get(
+                `${ENDPOINTS.variaciones}?muestraOriginalId=${ownerId}&page=1&limit=5000`,
+              ),
+        ]);
 
-      // Solo la muestra base muestra sus variaciones anexadas
+      setPresentaciones(
+        presResult.status === "fulfilled" ? toCollection(presResult.value) : [],
+      );
+
+      setViewPhotos(
+        fotosResult.status === "fulfilled" ? toCollection(fotosResult.value) : [],
+      );
+
       if (isVariation) {
         setVariacionesAnexadas([]);
       } else {
-        const todasMuestrasArr = toCollection(todasMuestras);
-        const variaciones = todasMuestrasArr.filter(
-          (m) => m.muestraOriginalId === ownerId && esMuestraVariacion(m),
-        );
-        setVariacionesAnexadas(variaciones);
+        const variacionesData =
+          variacionesResult.status === "fulfilled"
+            ? toCollection(variacionesResult.value)
+            : [];
+        setVariacionesAnexadas(variacionesData);
       }
 
-      // Generar QR para la muestra/variación
-      const baseUrl = window.location.origin;
-      const detailUrl = `${baseUrl}/muestra/${ownerId}`;
-      setQrLink(detailUrl);
-      const qrDataUrl = await generateQrDataUrl(detailUrl);
-      setQrUrl(qrDataUrl);
+      try {
+        const baseUrl = window.location.origin;
+        const detailUrl = `${baseUrl}/muestra/${ownerId}`;
+        setQrLink(detailUrl);
+        const qrDataUrl = await generateQrDataUrl(detailUrl);
+        setQrUrl(qrDataUrl);
+      } catch {
+        setQrUrl("");
+        setQrLink("");
+      }
     } catch {
       setPresentaciones([]);
       setViewPhotos([]);
@@ -718,6 +788,21 @@ export const MuestrasPage = () => {
       },
     },
     {
+      key: "fechaelaboracion",
+      label: "Fecha",
+      render: (row) => {
+        if (!row.fechaelaboracion) return "—";
+        const d = new Date(row.fechaelaboracion);
+        if (isNaN(d.getTime())) return row.fechaelaboracion;
+        // Formato compacto: 15/ene./25
+        return d.toLocaleDateString("es-CO", {
+          day: "2-digit",
+          month: "short",
+          year: "2-digit",
+        });
+      },
+    },
+    {
       key: "_ver",
       label: "",
       render: (row) => (
@@ -769,6 +854,7 @@ export const MuestrasPage = () => {
             onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
           />
         </div>
+
         <button
           type="button"
           onClick={() => setShowFilters((v) => !v)}
@@ -812,12 +898,19 @@ export const MuestrasPage = () => {
             Filtros avanzados
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input
-              className={inputCls}
-              placeholder="Segmento"
-              value={filters.segmento}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, segmento: e.target.value }))
+            <Select
+              options={segmentoSelectOptions}
+              isClearable
+              placeholder="Buscar segmento..."
+              styles={selectStyles}
+              menuPortalTarget={document.body}
+              value={
+                filters.segmento
+                  ? { value: filters.segmento, label: filters.segmento }
+                  : null
+              }
+              onChange={(opt) =>
+                setFilters((p) => ({ ...p, segmento: opt ? opt.value : "" }))
               }
             />
             <select
@@ -848,13 +941,36 @@ export const MuestrasPage = () => {
                 </option>
               ))}
             </select>
-            <input
-              className={inputCls}
-              placeholder="Moldería (ej: sueca, hormiga...)"
-              value={filters.molderia}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, molderia: e.target.value, molderiaid: "" }))
+            <Select
+              options={catalogs.molderias.map((i) => ({ value: i.nombre, label: i.nombre }))}
+              isClearable
+              placeholder="Buscar moldería..."
+              styles={selectStyles}
+              menuPortalTarget={document.body}
+              inputValue={molderiaInputValue}
+              value={
+                filters.molderia && !molderiaInputValue
+                  ? { value: filters.molderia, label: filters.molderia }
+                  : null
               }
+              onInputChange={(val, { action }) => {
+                // Al escribir: actualiza el input Y el filtro de texto libre
+                if (action === "input-change") {
+                  setMolderiaInputValue(val);
+                  setFilters((p) => ({ ...p, molderia: val, molderiaid: "" }));
+                }
+              }}
+              onChange={(opt) => {
+                if (opt) {
+                  // Selección exacta desde el dropdown
+                  setMolderiaInputValue("");
+                  setFilters((p) => ({ ...p, molderia: opt.value, molderiaid: "" }));
+                } else {
+                  // Limpiar con X
+                  setMolderiaInputValue("");
+                  setFilters((p) => ({ ...p, molderia: "", molderiaid: "" }));
+                }
+              }}
             />
             <select
               className={inputCls}
@@ -893,33 +1009,60 @@ export const MuestrasPage = () => {
             >
               <option value="">Licencia (todas)</option>
               <option value="true">Licenciado</option>
-              <option value="false">No licenciado</option>
+              <option value="false">Genérico</option>
             </select>
-            <input
-              className={inputCls}
-              placeholder="DIMA"
-              value={filters.dima}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, dima: e.target.value }))
+            <Select
+              options={dimaSelectOptions}
+              isClearable
+              placeholder="Buscar DIMA..."
+              styles={selectStyles}
+              menuPortalTarget={document.body}
+              value={
+                filters.dima
+                  ? { value: filters.dima, label: filters.dima }
+                  : null
+              }
+              onChange={(opt) =>
+                setFilters((p) => ({ ...p, dima: opt ? opt.value : "" }))
               }
             />
-            <div className="flex gap-2">
-              <input
-                type="date"
-                className={inputCls}
-                value={filters.from}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, from: e.target.value }))
-                }
-              />
-              <input
-                type="date"
-                className={inputCls}
-                value={filters.to}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, to: e.target.value }))
-                }
-              />
+            {/* Filtro por mes */}
+            <select
+              className={inputCls}
+              value={filters.mes}
+              onChange={(e) => handleMesChange(e.target.value)}
+            >
+              <option value="">Mes de elaboración</option>
+              {MESES.map((nombre, i) => (
+                <option key={i + 1} value={String(i + 1)}>
+                  {nombre}
+                </option>
+              ))}
+            </select>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Rango de fechas
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={filters.from}
+                  placeholder="Desde"
+                  onChange={(e) =>
+                    setFilters((p) => ({ ...p, from: e.target.value, mes: "" }))
+                  }
+                />
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={filters.to}
+                  placeholder="Hasta"
+                  onChange={(e) =>
+                    setFilters((p) => ({ ...p, to: e.target.value, mes: "" }))
+                  }
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1774,7 +1917,7 @@ export const MuestrasPage = () => {
                       <div key={v.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <p className="font-semibold text-slate-800">{v.referencia}</p>
+                            <p className="font-semibold text-slate-800">{formatearReferenciaVariacion(v)}</p>
                             <p className="text-xs text-slate-500">
                               {v.segmento || "—"}
                               {v.estado ? ` · ${v.estado}` : ""}
