@@ -90,7 +90,11 @@ const safe = (val) => {
 const esMuestraVariacion = (row) => {
   if (!row) return false;
   if (row.variacion === true) return true;
-  return String(row.estado || "").trim().toLowerCase() === "variacion";
+  return (
+    String(row.estado || "")
+      .trim()
+      .toLowerCase() === "variacion"
+  );
 };
 
 const formatearReferenciaVariacion = (row) => {
@@ -445,8 +449,18 @@ export const MuestrasPage = () => {
   };
 
   const MESES = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
   ];
 
   /** Recibe el número de mes 1-12 (string) o "" para limpiar */
@@ -709,7 +723,9 @@ export const MuestrasPage = () => {
       );
 
       setViewPhotos(
-        fotosResult.status === "fulfilled" ? toCollection(fotosResult.value) : [],
+        fotosResult.status === "fulfilled"
+          ? toCollection(fotosResult.value)
+          : [],
       );
 
       if (isVariation) {
@@ -858,10 +874,11 @@ export const MuestrasPage = () => {
         <button
           type="button"
           onClick={() => setShowFilters((v) => !v)}
-          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${showFilters || activeFilterCount > 0
-            ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
-            : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
-            }`}
+          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${
+            showFilters || activeFilterCount > 0
+              ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
+              : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
+          }`}
         >
           <FiFilter className="h-4 w-4" />
           Filtros
@@ -942,7 +959,10 @@ export const MuestrasPage = () => {
               ))}
             </select>
             <Select
-              options={catalogs.molderias.map((i) => ({ value: i.nombre, label: i.nombre }))}
+              options={catalogs.molderias.map((i) => ({
+                value: i.nombre,
+                label: i.nombre,
+              }))}
               isClearable
               placeholder="Buscar moldería..."
               styles={selectStyles}
@@ -964,7 +984,11 @@ export const MuestrasPage = () => {
                 if (opt) {
                   // Selección exacta desde el dropdown
                   setMolderiaInputValue("");
-                  setFilters((p) => ({ ...p, molderia: opt.value, molderiaid: "" }));
+                  setFilters((p) => ({
+                    ...p,
+                    molderia: opt.value,
+                    molderiaid: "",
+                  }));
                 } else {
                   // Limpiar con X
                   setMolderiaInputValue("");
@@ -1637,7 +1661,9 @@ export const MuestrasPage = () => {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#1B3D8F] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#163272] active:scale-[0.98]"
               >
                 <FiEdit2 className="h-3.5 w-3.5" />
-                {esMuestraVariacion(viewRow) ? "Editar variación" : "Editar muestra"}
+                {esMuestraVariacion(viewRow)
+                  ? "Editar variación"
+                  : "Editar muestra"}
               </button>
             </div>
             {/* ── Fotos ── */}
@@ -1695,25 +1721,54 @@ export const MuestrasPage = () => {
                 { label: "Segmento", value: viewRow.segmento },
                 {
                   label: "Estado",
-                  value: esMuestraVariacion(viewRow)
-                    ? "—"
-                    : <EstadoBadge estado={viewRow.estado} />,
+                  value: esMuestraVariacion(viewRow) ? (
+                    "—"
+                  ) : (
+                    <EstadoBadge estado={viewRow.estado} />
+                  ),
                 },
                 ...(esMuestraVariacion(viewRow)
                   ? [{ label: "Variación", value: "Sí" }]
                   : []),
-                { label: "Moldería", value: safe(catalogs.molderiasMap?.[viewRow.molderiaid] ?? viewRow.molderia) },
+                {
+                  label: "Moldería",
+                  value: safe(
+                    catalogs.molderiasMap?.[viewRow.molderiaid] ??
+                      viewRow.molderia,
+                  ),
+                },
                 { label: "Pares elaborados", value: viewRow.pareselaborados },
-                { label: "Fecha elaboración", value: viewRow.fechaelaboracion?.slice(0, 10) },
-                { label: "Cliente", value: safe(catalogs.clientesMap?.[viewRow.clienteid] ?? viewRow.clienteid) },
-                { label: "Ubicación", value: safe(catalogs.ubicacionesMap?.[viewRow.ubicacionid] ?? viewRow.ubicacionid) },
+                {
+                  label: "Fecha elaboración",
+                  value: viewRow.fechaelaboracion?.slice(0, 10),
+                },
+                {
+                  label: "Cliente",
+                  value: safe(
+                    catalogs.clientesMap?.[viewRow.clienteid] ??
+                      viewRow.clienteid,
+                  ),
+                },
+                {
+                  label: "Ubicación",
+                  value: safe(
+                    catalogs.ubicacionesMap?.[viewRow.ubicacionid] ??
+                      viewRow.ubicacionid,
+                  ),
+                },
                 {
                   label: "Diseñador",
-                  value: typeof viewRow.disenador === "object" && viewRow.disenador?.nombre
-                    ? viewRow.disenador.nombre
-                    : typeof viewRow.disenador === "string" && viewRow.disenador.trim() !== ""
-                      ? viewRow.disenador
-                      : safe(catalogs.disenadoresMap?.[viewRow.disenadorid] ?? viewRow.disenadorid),
+                  value:
+                    typeof viewRow.disenador === "object" &&
+                    viewRow.disenador?.nombre
+                      ? viewRow.disenador.nombre
+                      : typeof viewRow.disenador === "string" &&
+                          viewRow.disenador.trim() !== ""
+                        ? viewRow.disenador
+                        : safe(
+                            catalogs.disenadoresMap?.[viewRow.disenadorid] ??
+                              viewRow.disenadorid,
+                          ),
                 },
                 { label: "DIMA", value: viewRow.dima || "—" },
                 { label: "Licencia", value: viewRow.licencia || "—" },
@@ -1760,21 +1815,29 @@ export const MuestrasPage = () => {
               ) : (
                 <div className="space-y-2">
                   {presentaciones.map((p) => {
-                    const resultadoCls = {
-                      aprobada: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                      producida: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                      rechazada: "bg-rose-50 text-rose-700 border-rose-200",
-                      pendiente: "bg-orange-50 text-orange-700 border-orange-200",
-                      parcial: "bg-amber-50 text-amber-700 border-amber-200",
-                      revisar: "bg-violet-50 text-violet-700 border-violet-200",
-                    }[p.resultado] ?? "bg-slate-50 text-slate-600 border-slate-200";
+                    const resultadoCls =
+                      {
+                        aprobada:
+                          "bg-emerald-50 text-emerald-700 border-emerald-200",
+                        producida:
+                          "bg-emerald-50 text-emerald-700 border-emerald-200",
+                        rechazada: "bg-rose-50 text-rose-700 border-rose-200",
+                        pendiente:
+                          "bg-orange-50 text-orange-700 border-orange-200",
+                        parcial: "bg-amber-50 text-amber-700 border-amber-200",
+                        revisar:
+                          "bg-violet-50 text-violet-700 border-violet-200",
+                      }[p.resultado] ??
+                      "bg-slate-50 text-slate-600 border-slate-200";
                     return (
                       <div
                         key={p.id}
                         role="button"
                         tabIndex={0}
                         onClick={() => setEditingPresentacion({ ...p })}
-                        onKeyDown={(e) => e.key === "Enter" && setEditingPresentacion({ ...p })}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && setEditingPresentacion({ ...p })
+                        }
                         className="group rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer transition hover:border-[#1B3D8F]/40 hover:shadow-md hover:shadow-[#1B3D8F]/5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1785,13 +1848,17 @@ export const MuestrasPage = () => {
                                 "Cliente desconocido"}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {p.cliente?.region ? `Región: ${p.cliente.region} · ` : ""}
+                              {p.cliente?.region
+                                ? `Región: ${p.cliente.region} · `
+                                : ""}
                               Fecha: {p.fecha?.slice(0, 10) || "—"}
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {p.resultado && p.resultado !== "undefined" && (
-                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${resultadoCls}`}>
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${resultadoCls}`}
+                              >
                                 {p.resultado}
                               </span>
                             )}
@@ -1807,21 +1874,31 @@ export const MuestrasPage = () => {
                         </div>
                         {(p.paresaprobados > 0 || p.paresrechazados > 0) && (
                           <div className="mt-2 flex gap-4 text-xs text-slate-500">
-                            {p.paresaprobados > 0 && <span className="text-emerald-600">✓ {p.paresaprobados} aprobados</span>}
-                            {p.paresrechazados > 0 && <span className="text-rose-600">✗ {p.paresrechazados} rechazados</span>}
+                            {p.paresaprobados > 0 && (
+                              <span className="text-emerald-600">
+                                ✓ {p.paresaprobados} aprobados
+                              </span>
+                            )}
+                            {p.paresrechazados > 0 && (
+                              <span className="text-rose-600">
+                                ✗ {p.paresrechazados} rechazados
+                              </span>
+                            )}
                           </div>
                         )}
-                        {p.observaciones && p.observaciones.trim() && p.observaciones !== "undefined" && (
-                          <p className="mt-2 text-xs text-slate-500 line-clamp-2">{p.observaciones}</p>
-                        )}
+                        {p.observaciones &&
+                          p.observaciones.trim() &&
+                          p.observaciones !== "undefined" && (
+                            <p className="mt-2 text-xs text-slate-500 line-clamp-2">
+                              {p.observaciones}
+                            </p>
+                          )}
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
-
-
 
             {/* Clientes sin presentación */}
             {!loadingPres &&
@@ -1895,7 +1972,9 @@ export const MuestrasPage = () => {
             {!esMuestraVariacion(viewRow) && (
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Variaciones</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Variaciones
+                  </h3>
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1B3D8F] text-[10px] font-black text-white">
                     {loadingVariaciones ? "…" : variacionesAnexadas.length}
                   </span>
@@ -1907,15 +1986,22 @@ export const MuestrasPage = () => {
                   </div>
                 ) : variacionesAnexadas.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
-                    <p className="text-xs font-medium text-slate-400">Sin variaciones registradas para esta muestra.</p>
+                    <p className="text-xs font-medium text-slate-400">
+                      Sin variaciones registradas para esta muestra.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {variacionesAnexadas.map((v) => (
-                      <div key={v.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div
+                        key={v.id}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <p className="font-semibold text-slate-800">{formatearReferenciaVariacion(v)}</p>
+                            <p className="font-semibold text-slate-800">
+                              {formatearReferenciaVariacion(v)}
+                            </p>
                             <p className="text-xs text-slate-500">
                               {v.segmento || "—"}
                               {v.estado ? ` · ${v.estado}` : ""}
@@ -1925,7 +2011,9 @@ export const MuestrasPage = () => {
                             <span className="text-xs text-slate-500">
                               {typeof v.molderia === "object"
                                 ? v.molderia?.nombre
-                                : safe(catalogs.molderiasMap?.[v.molderiaid]) !== "—"
+                                : safe(
+                                      catalogs.molderiasMap?.[v.molderiaid],
+                                    ) !== "—"
                                   ? safe(catalogs.molderiasMap?.[v.molderiaid])
                                   : ""}
                             </span>
@@ -2008,7 +2096,8 @@ export const MuestrasPage = () => {
                               <body>
                                 <div class="qr-container">
                                   <h1>${viewRow.referencia}</h1>
-                                  <div class="label">Muestra: ${viewRow.segmento || "-"}</div>
+                                  <div class="label">Segmento: ${viewRow.segmento || "-"}</div>
+                                  <div class="label">Moldería: ${typeof viewRow.molderia === "object" ? viewRow.molderia?.nombre || "-" : viewRow.molderia || "-"}</div>
                                   <div class="qr-image">
                                     <img src="${qrUrl}" alt="QR Code" onload="setTimeout(() => window.print(), 300);" />
                                   </div>
@@ -2056,8 +2145,10 @@ export const MuestrasPage = () => {
               try {
                 await presentacionesCrud.create({
                   ...presentacionForm,
-                  paresaprobados: toNumber(presentacionForm.paresaprobados) || 0,
-                  paresrechazados: toNumber(presentacionForm.paresrechazados) || 0,
+                  paresaprobados:
+                    toNumber(presentacionForm.paresaprobados) || 0,
+                  paresrechazados:
+                    toNumber(presentacionForm.paresrechazados) || 0,
                 });
                 toast.success("Presentación creada correctamente");
                 setPresentacionModalOpen(false);
@@ -2238,10 +2329,11 @@ export const MuestrasPage = () => {
       {/* ── MODAL DETALLE / EDICIÓN DE PRESENTACIÓN EXISTENTE ── */}
       {editingPresentacion && (
         <Modal
-          title={`Presentación — ${editingPresentacion.cliente?.nombre ||
+          title={`Presentación — ${
+            editingPresentacion.cliente?.nombre ||
             safe(catalogs.clientesMap?.[editingPresentacion.clienteid]) ||
             "Cliente"
-            }`}
+          }`}
           onClose={() => setEditingPresentacion(null)}
         >
           <form
@@ -2253,9 +2345,13 @@ export const MuestrasPage = () => {
                 await presentacionesCrud.update(editingPresentacion.id, {
                   fecha: editingPresentacion.fecha,
                   resultado: editingPresentacion.resultado,
-                  paresaprobados: toNumber(editingPresentacion.paresaprobados) || 0,
-                  paresrechazados: toNumber(editingPresentacion.paresrechazados) || 0,
-                  derivoproduccion: Boolean(editingPresentacion.derivoproduccion),
+                  paresaprobados:
+                    toNumber(editingPresentacion.paresaprobados) || 0,
+                  paresrechazados:
+                    toNumber(editingPresentacion.paresrechazados) || 0,
+                  derivoproduccion: Boolean(
+                    editingPresentacion.derivoproduccion,
+                  ),
                   observaciones: editingPresentacion.observaciones || "",
                 });
                 toast.success("Presentación actualizada");
@@ -2281,20 +2377,28 @@ export const MuestrasPage = () => {
             {/* Info de solo lectura */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Referencia</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Referencia
+                </span>
                 <input
-                  type="text" disabled
+                  type="text"
+                  disabled
                   value={viewRow?.referencia || "—"}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600"
                 />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Cliente</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Cliente
+                </span>
                 <input
-                  type="text" disabled
+                  type="text"
+                  disabled
                   value={
                     editingPresentacion.cliente?.nombre ||
-                    safe(catalogs.clientesMap?.[editingPresentacion.clienteid]) ||
+                    safe(
+                      catalogs.clientesMap?.[editingPresentacion.clienteid],
+                    ) ||
                     "—"
                   }
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600"
@@ -2305,21 +2409,36 @@ export const MuestrasPage = () => {
             {/* Campos editables */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Fecha *</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Fecha *
+                </span>
                 <input
-                  type="date" required
+                  type="date"
+                  required
                   value={editingPresentacion.fecha?.slice(0, 10) || ""}
-                  onChange={(e) => setEditingPresentacion((p) => ({ ...p, fecha: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingPresentacion((p) => ({
+                      ...p,
+                      fecha: e.target.value,
+                    }))
+                  }
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Resultado *</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Resultado *
+                </span>
                 <select
                   required
                   value={editingPresentacion.resultado || ""}
-                  onChange={(e) => setEditingPresentacion((p) => ({ ...p, resultado: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingPresentacion((p) => ({
+                      ...p,
+                      resultado: e.target.value,
+                    }))
+                  }
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
                 >
                   <option value="">Selecciona</option>
@@ -2333,16 +2452,21 @@ export const MuestrasPage = () => {
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Pares aprobados</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Pares aprobados
+                </span>
                 <input
-                  type="number" min="0" placeholder="0"
+                  type="number"
+                  min="0"
+                  placeholder="0"
                   value={editingPresentacion.paresaprobados ?? 0}
                   onChange={(e) => {
                     const v = e.target.value;
                     setEditingPresentacion((p) => ({
                       ...p,
                       paresaprobados: v,
-                      derivoproduccion: toNumber(v) > 0 ? true : p.derivoproduccion,
+                      derivoproduccion:
+                        toNumber(v) > 0 ? true : p.derivoproduccion,
                     }));
                   }}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
@@ -2354,36 +2478,56 @@ export const MuestrasPage = () => {
               <input
                 type="checkbox"
                 checked={Boolean(editingPresentacion.derivoproduccion)}
-                onChange={(e) => setEditingPresentacion((p) => ({ ...p, derivoproduccion: e.target.checked }))}
+                onChange={(e) =>
+                  setEditingPresentacion((p) => ({
+                    ...p,
+                    derivoproduccion: e.target.checked,
+                  }))
+                }
                 className="h-4 w-4 rounded border-slate-300 text-[#1B3D8F]"
               />
-              <span className="text-sm font-medium text-slate-700">Derivó en producción</span>
+              <span className="text-sm font-medium text-slate-700">
+                Derivó en producción
+              </span>
             </label>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Observaciones</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Observaciones
+              </span>
               <textarea
                 rows="3"
                 placeholder="Notas o comentarios adicionales..."
                 value={editingPresentacion.observaciones || ""}
-                onChange={(e) => setEditingPresentacion((p) => ({ ...p, observaciones: e.target.value }))}
+                onChange={(e) =>
+                  setEditingPresentacion((p) => ({
+                    ...p,
+                    observaciones: e.target.value,
+                  }))
+                }
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#1B3D8F] focus:outline-none focus:ring-1 focus:ring-[#1B3D8F]"
               />
             </label>
 
             <div className="form-actions">
-              <button type="button" className="ghost-btn" onClick={() => setEditingPresentacion(null)}>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setEditingPresentacion(null)}
+              >
                 Cancelar
               </button>
-              <button type="submit" disabled={savingEditPres} className="primary-btn">
+              <button
+                type="submit"
+                disabled={savingEditPres}
+                className="primary-btn"
+              >
                 {savingEditPres ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </form>
         </Modal>
       )}
-
     </section>
   );
 };
-
