@@ -1032,7 +1032,7 @@ export const MuestrasPage = () => {
               value={filters.mes}
               onChange={(e) => handleMesChange(e.target.value)}
             >
-              <option value="">Mes de elaboración</option>
+              <option value="">Todos los meses</option>
               {MESES.map((nombre, i) => (
                 <option key={i + 1} value={String(i + 1)}>
                   {nombre}
@@ -1630,18 +1630,16 @@ export const MuestrasPage = () => {
           onClose={() => setViewRow(null)}
         >
           <div className="space-y-6">
-            {esMuestraVariacion(viewRow) && (
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEditFromDetail(viewRow)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#1B3D8F] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#163272]"
-                >
-                  <FiEdit2 className="h-3.5 w-3.5" />
-                  Editar variación
-                </button>
-              </div>
-            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => openEditFromDetail(viewRow)}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#1B3D8F] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#163272] active:scale-[0.98]"
+              >
+                <FiEdit2 className="h-3.5 w-3.5" />
+                {esMuestraVariacion(viewRow) ? "Editar variación" : "Editar muestra"}
+              </button>
+            </div>
             {/* ── Fotos ── */}
             <div>
               <div className="mb-3 flex items-center gap-2">
