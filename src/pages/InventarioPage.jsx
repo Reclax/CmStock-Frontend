@@ -151,7 +151,7 @@ export const InventarioPage = () => {
       referencia: m.referencia,
       modelo: m.modelo,
       ubicacion: catalogs.ubicacionesMap[m.ubicacionid] || m.ubicacionid,
-      stock: map[m.id] || 0,
+      stock: Math.max(0, (m.pareselaborados || 0) + (map[m.id] || 0)),
     }));
   }, [movimientos.items, muestras.items, catalogs.ubicacionesMap]);
 
