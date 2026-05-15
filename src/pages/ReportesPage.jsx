@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import { exportToExcel } from "../utils/excel";
 import { useCatalogData } from "../hooks/useCatalogData";
-import { FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight } from "react-icons/fi";
+import { FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight, FiSearch, FiFilter, FiX } from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("es-CO", {
@@ -75,11 +75,18 @@ const fetchAllMuestras = async () => {
 export const ReportesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     query: "",
     clienteId: "",
     estado: "",
     segmento: "",
+    licencia: "",
+    dima: "",
+    variacion: "",
+    molderiaid: "",
+    ubicacionid: "",
+    disenadorid: "",
     dateFrom: "",
     dateTo: "",
     limit: 15,
@@ -160,6 +167,12 @@ export const ReportesPage = () => {
     filters.clienteId,
     filters.estado,
     filters.segmento,
+    filters.licencia,
+    filters.dima,
+    filters.variacion,
+    filters.molderiaid,
+    filters.ubicacionid,
+    filters.disenadorid,
     filters.dateFrom,
     filters.dateTo,
     filters.limit,
@@ -169,6 +182,8 @@ export const ReportesPage = () => {
     () => new Map(data.clientes.map((item) => [item.id, item.nombre || "Cliente"])),
     [data.clientes],
   );
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   const estadoOptions = useMemo(() => {
     const unique = new Set();
@@ -186,6 +201,46 @@ export const ReportesPage = () => {
     return Array.from(unique).sort();
   }, [data.muestras]);
 
+  const licenciaOptions = useMemo(() => {
+    const unique = new Set();
+    for (const item of data.muestras) {
+      if (item.licencia) unique.add(item.licencia);
+    }
+    return Array.from(unique).sort();
+  }, [data.muestras]);
+
+  const dimaOptions = useMemo(() => {
+    const unique = new Set();
+    for (const item of data.muestras) {
+      if (item.dima) unique.add(item.dima);
+    }
+    return Array.from(unique).sort();
+  }, [data.muestras]);
+
+  const molderiasOptions = useMemo(() => {
+    const unique = new Set();
+    for (const item of data.muestras) {
+      if (item.molderiaid) unique.add(item.molderiaid);
+    }
+    return Array.from(unique);
+  }, [data.muestras]);
+
+  const ubicacionesOptions = useMemo(() => {
+    const unique = new Set();
+    for (const item of data.muestras) {
+      if (item.ubicacionid) unique.add(item.ubicacionid);
+    }
+    return Array.from(unique);
+  }, [data.muestras]);
+
+  const disenadoresOptions = useMemo(() => {
+    const unique = new Set();
+    for (const item of data.muestras) {
+      if (item.disenadorid) unique.add(item.disenadorid);
+    }
+    return Array.from(unique);
+  }, [data.muestras]);
+
   const filteredMuestras = useMemo(() => {
     const normalizedQuery = normalizeText(filters.query);
     const from = filters.dateFrom ? new Date(filters.dateFrom) : null;
@@ -201,6 +256,33 @@ export const ReportesPage = () => {
       }
 
       if (filters.segmento && normalizeText(muestra.segmento) !== normalizeText(filters.segmento)) {
+        return false;
+      }
+
+      if (filters.licencia && muestra.licencia !== filters.licencia) {
+        return false;
+      }
+
+      if (filters.dima && muestra.dima !== filters.dima) {
+        return false;
+      }
+
+      if (filters.variacion !== "") {
+        const varFilter = filters.variacion === "si";
+        if (muestra.variacion !== varFilter) {
+          return false;
+        }
+      }
+
+      if (filters.molderiaid && muestra.molderiaid !== filters.molderiaid) {
+        return false;
+      }
+
+      if (filters.ubicacionid && muestra.ubicacionid !== filters.ubicacionid) {
+        return false;
+      }
+
+      if (filters.disenadorid && muestra.disenadorid !== filters.disenadorid) {
         return false;
       }
 
@@ -327,111 +409,205 @@ export const ReportesPage = () => {
         </div>
       </header>
 
-      <div className="rounded-[26px] border border-slate-200 bg-white/80 p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Filtros inteligentes</h2>
-            <p className="text-sm text-slate-500">Filtra por cliente, estado, segmento y rango de fechas.</p>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#1B3D8F] focus:shadow-[0_0_0_3px_rgba(27,61,143,0.08)] placeholder:text-slate-400"
+            placeholder="Buscar por referencia o modelo..."
+            value={filters.query}
+            onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${
+            showFilters || activeFilterCount > 0
+              ? "border-[#1B3D8F] bg-[#1B3D8F] text-white shadow-[0_4px_14px_rgba(27,61,143,0.25)]"
+              : "border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300"
+          }`}
+        >
+          <FiFilter className="h-4 w-4" />
+          Filtros avanzados
+         
+        </button>
+        {activeFilterCount > 0 && (
           <button
             type="button"
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
             onClick={() =>
               setFilters({
                 query: "",
                 clienteId: "",
                 estado: "",
                 segmento: "",
+                licencia: "",
+                dima: "",
+                variacion: "",
+                molderiaid: "",
+                ubicacionid: "",
+                disenadorid: "",
                 dateFrom: "",
                 dateTo: "",
                 limit: 15,
               })
             }
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-100"
           >
-            Limpiar filtros
+            <FiX className="h-4 w-4" />
+            Limpiar
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-7 lg:items-end">
-          <label className="lg:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Buscar</span>
-            <input
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
-              placeholder="Referencia, modelo, cliente..."
-              value={filters.query}
-              onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
-            />
-          </label>
-
-          <label className="lg:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Cliente</span>
+      {showFilters && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Filtros avanzados
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <select
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
               value={filters.clienteId}
               onChange={(event) => setFilters((prev) => ({ ...prev, clienteId: event.target.value }))}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los clientes</option>
               {data.clientes.map((cliente) => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre || cliente.id}
                 </option>
               ))}
             </select>
-          </label>
 
-          <label className="lg:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Estado</span>
             <select
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
               value={filters.estado}
               onChange={(event) => setFilters((prev) => ({ ...prev, estado: event.target.value }))}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los estados</option>
               {estadoOptions.map((estado) => (
                 <option key={estado} value={estado}>
                   {estado}
                 </option>
               ))}
             </select>
-          </label>
 
-          <label className="lg:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Segmento</span>
             <select
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
               value={filters.segmento}
               onChange={(event) => setFilters((prev) => ({ ...prev, segmento: event.target.value }))}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los segmentos</option>
               {segmentoOptions.map((segmento) => (
                 <option key={segmento} value={segmento}>
                   {segmento}
                 </option>
               ))}
             </select>
-          </label>
 
-          <label className="lg:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Desde</span>
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.licencia}
+              onChange={(event) => setFilters((prev) => ({ ...prev, licencia: event.target.value }))}
+            >
+              <option value="">Todas las licencias</option>
+              {licenciaOptions.map((licencia) => (
+                <option key={licencia} value={licencia}>
+                  {licencia}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.dima}
+              onChange={(event) => setFilters((prev) => ({ ...prev, dima: event.target.value }))}
+            >
+              <option value="">Todos los DIMA</option>
+              {dimaOptions.map((dima) => (
+                <option key={dima} value={dima}>
+                  {dima}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.variacion}
+              onChange={(event) => setFilters((prev) => ({ ...prev, variacion: event.target.value }))}
+            >
+              <option value="">Todas las variaciones</option>
+              <option value="si">Si</option>
+              <option value="no">No</option>
+            </select>
+
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.molderiaid}
+              onChange={(event) => setFilters((prev) => ({ ...prev, molderiaid: event.target.value }))}
+            >
+              <option value="">Todas las molderías</option>
+              {molderiasOptions.map((molderiaid) => {
+                const molderiasMap = catalogs.molderiasMap || {};
+                return (
+                  <option key={molderiaid} value={molderiaid}>
+                    {molderiasMap[molderiaid] || molderiaid}
+                  </option>
+                );
+              })}
+            </select>
+
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.ubicacionid}
+              onChange={(event) => setFilters((prev) => ({ ...prev, ubicacionid: event.target.value }))}
+            >
+              <option value="">Todas las ubicaciones</option>
+              {ubicacionesOptions.map((ubicacionid) => {
+                const ubicacionesMap = catalogs.ubicacionesMap || {};
+                return (
+                  <option key={ubicacionid} value={ubicacionid}>
+                    {ubicacionesMap[ubicacionid] || ubicacionid}
+                  </option>
+                );
+              })}
+            </select>
+
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              value={filters.disenadorid}
+              onChange={(event) => setFilters((prev) => ({ ...prev, disenadorid: event.target.value }))}
+            >
+              <option value="">Todos los diseñadores</option>
+              {disenadoresOptions.map((disenadorid) => {
+                const disenadoresMap = catalogs.disenadoresMap || {};
+                return (
+                  <option key={disenadorid} value={disenadorid}>
+                    {disenadoresMap[disenadorid] || disenadorid}
+                  </option>
+                );
+              })}
+            </select>
+
             <input
               type="date"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              placeholder="Desde"
               value={filters.dateFrom}
               onChange={(event) => setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))}
             />
-          </label>
 
-          <label className="lg:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Hasta</span>
             <input
               type="date"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#1B3D8F] focus:outline-none"
+              placeholder="Hasta"
               value={filters.dateTo}
               onChange={(event) => setFilters((prev) => ({ ...prev, dateTo: event.target.value }))}
             />
-          </label>
+          </div>
         </div>
-      </div>
+      )}
 
       {loading ? <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">Construyendo reportes...</p> : null}
       {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">{error}</p> : null}
