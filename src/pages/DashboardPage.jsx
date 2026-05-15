@@ -55,7 +55,7 @@ const toCollection = (payload) => {
 };
 
 
-const KpiCard = ({ value, title, subtitle, muted = false }) => (
+const KpiCard = ({ value, title, muted = false }) => (
   <article
     className={[
       "rounded-3xl border p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]",
@@ -80,9 +80,6 @@ const KpiCard = ({ value, title, subtitle, muted = false }) => (
     >
       {title}
     </p>
-    <small className={muted ? "text-slate-500" : "text-slate-600"}>
-      {subtitle}
-    </small>
   </article>
 );
 
@@ -250,6 +247,7 @@ const PresentacionPieChart = ({ data, muted = false }) => {
               innerRadius={0}
               outerRadius="85%"
               paddingAngle={2}
+              animationDuration={450}
               labelLine={false}
               label={renderLabel}
             >
@@ -495,6 +493,7 @@ export const DashboardPage = () => {
     };
 
     const muestrasWithDate = [];
+    const muestraDateById = new Map();
     for (const muestra of data.muestras) {
       const created = toDate(
         muestra.fechaelaboracion ??
@@ -506,6 +505,7 @@ export const DashboardPage = () => {
       );
       if (created) {
         muestrasWithDate.push({ muestra, created });
+        muestraDateById.set(muestra.id, created);
       }
     }
 
@@ -533,6 +533,8 @@ export const DashboardPage = () => {
     let noPresentadas = 0;
     let aprobadas = 0;
     let dadasDeBaja = 0;
+    let ordenProduccion = 0;
+    let dadasDeBajaProduccion = 0;
     const anyDataCount =
       totalMuestras +
       data.presentaciones.length +
@@ -558,10 +560,15 @@ export const DashboardPage = () => {
       yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
     }
 
+    const produccionMuestraIds = new Set(
+      data.producciones.map((produccion) => produccion.muestraid),
+    );
+
     for (const item of filteredMuestras) {
       const { muestra, created } = item;
       const estadoKey = normalizeMuestraEstado(muestra.estado);
       estadoCounts.set(estadoKey, (estadoCounts.get(estadoKey) || 0) + 1);
+      const hasProduccion = produccionMuestraIds.has(muestra.id);
 
       if (estadoKey === "pendiente" || estadoKey === "presentada") {
         presentadas += 1;
@@ -577,6 +584,14 @@ export const DashboardPage = () => {
 
       if (estadoKey === "dada de baja") {
         dadasDeBaja += 1;
+      }
+
+      if (hasProduccion && estadoKey === "aprobada") {
+        ordenProduccion += 1;
+      }
+
+      if (hasProduccion && estadoKey === "dada de baja") {
+        dadasDeBajaProduccion += 1;
       }
 
       monthlyMuestras[created.getMonth()] += 1;
@@ -606,7 +621,6 @@ export const DashboardPage = () => {
       if (selectedYear && (!created || created.getFullYear() !== Number(selectedYear))) {
         return false;
       }
-
       return true;
     });
 
@@ -630,23 +644,20 @@ export const DashboardPage = () => {
     ];
 
     const clienteMap = new Map();
-    for (const produccion of data.producciones) {
-      if (!produccion.clienteid) {
+    for (const item of filteredMuestras) {
+      const { muestra } = item;
+      const estadoKey = normalizeMuestraEstado(muestra.estado);
+      if (estadoKey !== "aprobada") {
         continue;
       }
-      const producedDate = toDate(produccion.fechaproduccion);
-      if (
-        selectedYear &&
-        (!producedDate || producedDate.getFullYear() !== Number(selectedYear))
-      ) {
+      if (!produccionMuestraIds.has(muestra.id)) {
         continue;
       }
-      if (selectedClienteId && produccion.clienteid !== selectedClienteId) {
+      const id = muestra.clienteid;
+      if (!id) {
         continue;
       }
-      const id = produccion.clienteid;
-      const producedPairs = Number(produccion.paresproducidos) || 0;
-      clienteMap.set(id, (clienteMap.get(id) || 0) + producedPairs);
+      clienteMap.set(id, (clienteMap.get(id) || 0) + 1);
     }
 
     const topClientes = Array.from(clienteMap.entries())
@@ -691,6 +702,8 @@ export const DashboardPage = () => {
       noPresentadas,
       aprobadas,
       dadasDeBaja,
+      ordenProduccion,
+      dadasDeBajaProduccion,
       otras,
       enBodega,
       monthlyMuestras,
@@ -776,7 +789,7 @@ export const DashboardPage = () => {
           )}
           {selectedYear && (
             <span className="rounded-full bg-white px-2 py-1 text-slate-600">
-              Ano: {selectedYear}
+              Año: {selectedYear}
             </span>
           )}
           {selectedClienteId && (
@@ -807,31 +820,26 @@ export const DashboardPage = () => {
             <KpiCard
               value={stats.totalMuestras}
               title="Total Muestras"
-              subtitle="en el sistema"
               muted={!stats.hasRealData}
             />
             <KpiCard
               value={stats.presentadas}
               title="Presentadas"
-              subtitle="referencia ok"
               muted={!stats.hasRealData}
             />
             <KpiCard
               value={stats.noPresentadas}
               title="No presentadas"
-              subtitle="en inventario"
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.presentacionItems?.[0]?.value || 0}
+              value={stats.ordenProduccion}
               title="Orden de produccion"
-              subtitle="aprobadas"
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.presentacionItems?.[2]?.value || 0}
+              value={stats.dadasDeBajaProduccion}
               title="Dadas de baja"
-              subtitle="no aprobadas"
               muted={!stats.hasRealData}
             />
           </div>
@@ -875,7 +883,7 @@ export const DashboardPage = () => {
                   )}
                 </div>
               )}
-              <div className="mt-4 pointer-events-none">
+              <div className="mt-4">
                 {selectedYear ? (
                   <MuestrasBarChart
                     data={monthlyItems}
@@ -997,7 +1005,7 @@ export const DashboardPage = () => {
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                  Top clientes por produccion
+                  Top clientes por orden de produccion
                 </h3>
                 <button
                   type="button"
