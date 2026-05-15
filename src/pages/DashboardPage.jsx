@@ -646,10 +646,7 @@ export const DashboardPage = () => {
     const clienteMap = new Map();
     for (const item of filteredMuestras) {
       const { muestra } = item;
-      const estadoKey = normalizeMuestraEstado(muestra.estado);
-      if (estadoKey !== "aprobada") {
-        continue;
-      }
+      // Removido el filtro de "aprobada" para que tome en cuenta todas las muestras derivadas a producción, incluyendo las dadas de baja.
       if (!produccionMuestraIds.has(muestra.id)) {
         continue;
       }
@@ -666,8 +663,7 @@ export const DashboardPage = () => {
         key: id,
         value,
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a, b) => b.value - a.value);
 
     const clienteMuestrasMap = new Map();
     for (const item of filteredMuestras) {
@@ -682,8 +678,7 @@ export const DashboardPage = () => {
         key: id,
         value,
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a, b) => b.value - a.value);
 
     const hasRealData = anyDataCount > 0;
     const otras = Math.max(
@@ -988,7 +983,7 @@ export const DashboardPage = () => {
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
-              <div className="mt-4">
+              <div className="mt-4 max-h-[220px] overflow-y-auto pr-2">
                 <CategoryList
                   items={
                     stats.topClientesMuestras.length
@@ -1016,7 +1011,7 @@ export const DashboardPage = () => {
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
-              <div className="mt-4">
+              <div className="mt-4 max-h-[220px] overflow-y-auto pr-2">
                 <CategoryList
                   items={
                     stats.topClientes.length

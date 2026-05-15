@@ -12,6 +12,29 @@ export const ImportacionComponent = ({ onImportComplete }) => {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [dragActive, setDragActive] = useState({
+    baseDis: false,
+    aprobaciones: false
+  });
+
+  const handleDrag = (e, fileType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive((prev) => ({ ...prev, [fileType]: true }));
+    } else if (e.type === "dragleave") {
+      setDragActive((prev) => ({ ...prev, [fileType]: false }));
+    }
+  };
+
+  const handleDrop = (e, fileType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive((prev) => ({ ...prev, [fileType]: false }));
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect({ target: { files: e.dataTransfer.files } }, fileType);
+    }
+  };
 
   const handleFileSelect = (e, fileType) => {
     const file = e.target.files[0];
@@ -96,7 +119,15 @@ export const ImportacionComponent = ({ onImportComplete }) => {
               />
               <label
                 htmlFor="baseDis-input"
-                className="block w-full px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all"
+                onDragEnter={(e) => handleDrag(e, 'baseDis')}
+                onDragLeave={(e) => handleDrag(e, 'baseDis')}
+                onDragOver={(e) => handleDrag(e, 'baseDis')}
+                onDrop={(e) => handleDrop(e, 'baseDis')}
+                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${
+                  dragActive.baseDis
+                    ? "border-indigo-500 bg-indigo-100"
+                    : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
+                }`}
               >
                 {files.baseDis ? (
                   <span className="text-green-600 font-semibold flex items-center justify-center gap-2">
@@ -127,7 +158,15 @@ export const ImportacionComponent = ({ onImportComplete }) => {
               />
               <label
                 htmlFor="aprobaciones-input"
-                className="block w-full px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all"
+                onDragEnter={(e) => handleDrag(e, 'aprobaciones')}
+                onDragLeave={(e) => handleDrag(e, 'aprobaciones')}
+                onDragOver={(e) => handleDrag(e, 'aprobaciones')}
+                onDrop={(e) => handleDrop(e, 'aprobaciones')}
+                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${
+                  dragActive.aprobaciones
+                    ? "border-indigo-500 bg-indigo-100"
+                    : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
+                }`}
               >
                 {files.aprobaciones ? (
                   <span className="text-green-600 font-semibold flex items-center justify-center gap-2">
