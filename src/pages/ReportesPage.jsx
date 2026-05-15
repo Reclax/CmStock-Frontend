@@ -31,6 +31,22 @@ const normalizeText = (value) =>
     .toLowerCase()
     .trim();
 
+const formatVariacion = (value) => {
+  if (value === true || value === 1) return "si";
+  if (value === false || value === 0) return "no";
+
+  const normalized = normalizeText(value);
+  if (["verdadero", "si", "s", "yes", "true", "1"].includes(normalized)) return "si";
+  if (["falso", "no", "n", "false", "0"].includes(normalized)) return "no";
+
+  return value ? String(value) : "-";
+};
+
+const formatDateValue = (value) => {
+  const parsed = toDate(value);
+  return parsed ? MONTH_FORMAT.format(parsed) : "-";
+};
+
 const MUESTRAS_PAGE_LIMIT = 500;
 
 const fetchAllMuestras = async () => {
@@ -154,8 +170,6 @@ export const ReportesPage = () => {
     [data.clientes],
   );
 
-  const muestrasById = useMemo(() => new Map(data.muestras.map((m) => [m.id, m])), [data.muestras]);
-
   const estadoOptions = useMemo(() => {
     const unique = new Set();
     for (const item of data.muestras) {
@@ -226,86 +240,6 @@ export const ReportesPage = () => {
     });
   }, [data.muestras, filters, clienteById]);
 
-  const filteredMuestraIds = useMemo(
-    () => new Set(filteredMuestras.map((item) => item.id)),
-    [filteredMuestras],
-  );
-
-  const filteredMovimientos = useMemo(() => {
-    if (!filteredMuestraIds.size) return [];
-    return data.movimientos.filter((item) => filteredMuestraIds.has(item.muestraid));
-  }, [data.movimientos, filteredMuestraIds]);
-
-  const filteredProducciones = useMemo(() => {
-    if (!filteredMuestraIds.size) return [];
-    return data.producciones.filter((item) => filteredMuestraIds.has(item.muestraid));
-  }, [data.producciones, filteredMuestraIds]);
-
-  const stats = useMemo(() => {
-    const totalMuestras = filteredMuestras.length;
-    let presentadas = 0;
-    let aprobadas = 0;
-    const stockMap = {};
-    let entradas = 0;
-    let salidas = 0;
-
-    for (const movimiento of filteredMovimientos || []) {
-      const id = movimiento.muestraid;
-      const cantidad = Number(movimiento.cantidad) || 0;
-      if (movimiento.tipo === "salida") {
-        salidas += cantidad;
-      } else {
-        entradas += cantidad;
-      }
-      const delta = movimiento.tipo === "salida" ? -cantidad : cantidad;
-      stockMap[id] = (stockMap[id] || 0) + delta;
-    }
-
-    const enBodega = Object.values(stockMap).filter((v) => v > 0).length;
-
-    for (const muestra of filteredMuestras || []) {
-      const estado = (muestra.estado || "").toString().toLowerCase();
-      if (estado === "presentada") presentadas += 1;
-      if (estado === "aprobada") aprobadas += 1;
-    }
-
-    return {
-      totalMuestras,
-      presentadas,
-      aprobadas,
-      enBodega,
-      entradas,
-      salidas,
-    };
-  }, [filteredMuestras, filteredMovimientos]);
-
-  const strategic = useMemo(() => {
-    const muestrasPorCliente = {};
-    for (const item of filteredMuestras) {
-      muestrasPorCliente[item.clienteid] =
-        (muestrasPorCliente[item.clienteid] || 0) + 1;
-    }
-
-    const ventasPorCliente = {};
-    for (const item of filteredProducciones) {
-      ventasPorCliente[item.clienteid] =
-        (ventasPorCliente[item.clienteid] || 0) +
-        (Number(item.paresproducidos) || 0);
-    }
-
-    const modeloPorSegmento = {};
-    for (const item of filteredMuestras) {
-      modeloPorSegmento[item.segmento] =
-        (modeloPorSegmento[item.segmento] || 0) + 1;
-    }
-
-    return {
-      muestrasPorCliente,
-      ventasPorCliente,
-      modeloPorSegmento,
-    };
-  }, [filteredMuestras, filteredProducciones]);
-
   const exportMuestras = () => {
     const clientesMap = catalogs.clientesMap || {};
     const molderiasMap = catalogs.molderiasMap || {};
@@ -318,78 +252,30 @@ export const ReportesPage = () => {
       const ubicacionNombre = ubicacionesMap[r.ubicacionid] || "";
       const disenadorNombre = disenadoresMap[r.disenadorid] || "";
 
-      // copy all properties except those ending with 'id'
-      const out = {};
-      for (const [k, v] of Object.entries(r)) {
-        if (k.toLowerCase().endsWith("id")) continue;
-        out[k] = v;
-      }
-
-      // add readable names
-      out.cliente = clienteNombre;
-      out.molderia = molderiaNombre;
-      out.ubicacion = ubicacionNombre;
-      out.disenador = disenadorNombre;
-
-      return out;
+      return {
+        referencia: r.referencia || "",
+        segmento: r.segmento || "",
+        licencia: r.licencia || "",
+        dima: r.dima || "",
+        fechaelaboracion:
+          r.fechaelaboracion ??
+          r.fechaElaboracion ??
+          r.createdAt ??
+          r.createdat ??
+          r.fecha ??
+          r.fechaCreacion ??
+          "",
+        estado: r.estado || "",
+        variacion: formatVariacion(r.variacion),
+        cliente: clienteNombre,
+        molderia: molderiaNombre,
+        ubicacion: ubicacionNombre,
+        disenador: disenadorNombre,
+      };
     });
 
     exportToExcel(rows, "reporte_muestras", "Muestras");
   };
-  const exportProduccion = () => {
-    const clientesMap = catalogs.clientesMap || {};
-    const rows = filteredProducciones.map((r) => {
-      const clienteNombre = clientesMap[r.clienteid] || clienteById.get(r.clienteid) || "";
-      const out = {};
-      for (const [k, v] of Object.entries(r)) {
-        if (k.toLowerCase().endsWith("id")) continue;
-        out[k] = v;
-      }
-      out.cliente = clienteNombre;
-      return out;
-    });
-    exportToExcel(rows, "reporte_produccion", "Produccion");
-  };
-  const exportClientes = () =>
-    exportToExcel(data.clientes, "reporte_clientes", "Clientes");
-  const exportInventario = () => {
-    const clientesMap = catalogs.clientesMap || {};
-    const molderiasMap = catalogs.molderiasMap || {};
-    const ubicacionesMap = catalogs.ubicacionesMap || {};
-
-    const rows = filteredMovimientos.map((r) => {
-      // try to get related muestra for richer info
-      const muestra = muestrasById.get(r.muestraid) || null;
-      const clienteNombre = clientesMap[r.clienteid] || (muestra && (clientesMap[muestra.clienteid] || clienteById.get(muestra.clienteid))) || "";
-      const molderiaNombre = (muestra && molderiasMap[muestra.molderiaid]) || molderiasMap[r.molderiaid] || "";
-      const ubicacionNombre = (muestra && ubicacionesMap[muestra.ubicacionid]) || ubicacionesMap[r.ubicacionid] || "";
-
-      const out = {};
-      for (const [k, v] of Object.entries(r)) {
-        if (k.toLowerCase().endsWith("id")) continue;
-        out[k] = v;
-      }
-
-      out.cliente = clienteNombre;
-      out.molderia = molderiaNombre;
-      out.ubicacion = ubicacionNombre;
-
-      return out;
-    });
-
-    exportToExcel(rows, "reporte_inventario", "Inventario");
-  };
-
-  const stockByMuestra = useMemo(() => {
-    const map = new Map();
-    for (const movimiento of filteredMovimientos) {
-      const current = map.get(movimiento.muestraid) || 0;
-      const cantidad = Number(movimiento.cantidad) || 0;
-      const delta = movimiento.tipo === "salida" ? -cantidad : cantidad;
-      map.set(movimiento.muestraid, current + delta);
-    }
-    return map;
-  }, [filteredMovimientos]);
 
   const pageSize = Number(filters.limit) || 15;
   const totalPages = Math.max(1, Math.ceil(filteredMuestras.length / pageSize));
@@ -429,6 +315,15 @@ export const ReportesPage = () => {
           >
             Actualizar
           </button>
+          <div className="flex flex-wrap gap-3 justify-center ml-4">
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              onClick={exportMuestras}
+            >
+              Exportar reporte
+            </button>
+          </div>
         </div>
       </header>
 
@@ -543,83 +438,9 @@ export const ReportesPage = () => {
 
       {!loading && !error && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard value={stats.totalMuestras} title="Total Muestras" subtitle="en el sistema" muted={false} />
-            <KpiCard value={stats.presentadas} title="Presentadas" subtitle={`de ${stats.totalMuestras} elaboradas`} muted={false} />
-            <KpiCard value={stats.aprobadas} title="Aprobadas" subtitle="total aprobadas" muted={false} />
-            <KpiCard value={stats.enBodega} title="En Bodega" subtitle="disponibles a reutilizar" muted={false} />
-          </div>
+         
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="text-base font-semibold text-slate-900">Resumen operativo</h3>
-              <p className="mt-1 text-sm text-slate-500">Entradas vs salidas según movimientos filtrados.</p>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span>Entradas</span>
-                  <strong className="text-[#1B3D8F]">{stats.entradas}</strong>
-                </div>
-                <div className="h-2.5 rounded-full bg-slate-100">
-                  <div
-                    className="h-2.5 rounded-full bg-gradient-to-r from-[#1B3D8F] to-[#2f63da]"
-                    style={{ width: `${Math.min((stats.entradas / Math.max(stats.entradas, stats.salidas, 1)) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span>Salidas</span>
-                  <strong className="text-[#2f63da]">{stats.salidas}</strong>
-                </div>
-                <div className="h-2.5 rounded-full bg-slate-100">
-                  <div
-                    className="h-2.5 rounded-full bg-gradient-to-r from-[#8fb8ff] to-[#2f63da]"
-                    style={{ width: `${Math.min((stats.salidas / Math.max(stats.entradas, stats.salidas, 1)) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </article>
-
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="text-base font-semibold text-slate-900">Muestras por cliente</h3>
-              <p className="mt-1 text-sm text-slate-500">Top de clientes con mayor volumen.</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {Object.entries(strategic.muestrasPorCliente).length === 0 && (
-                  <li className="text-slate-400">Sin registros disponibles</li>
-                )}
-                {Object.entries(strategic.muestrasPorCliente)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([clienteid, total]) => (
-                    <li key={clienteid} className="flex items-center justify-between">
-                      <span className="text-slate-600">
-                        {clienteById.get(clienteid) || clienteid}
-                      </span>
-                      <strong className="text-slate-900">{total}</strong>
-                    </li>
-                  ))}
-              </ul>
-            </article>
-
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
-              <h3 className="text-base font-semibold text-slate-900">Ventas por cliente</h3>
-              <p className="mt-1 text-sm text-slate-500">Pares producidos según filtros.</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {Object.entries(strategic.ventasPorCliente).length === 0 && (
-                  <li className="text-slate-400">Sin registros disponibles</li>
-                )}
-                {Object.entries(strategic.ventasPorCliente)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([clienteid, total]) => (
-                    <li key={clienteid} className="flex items-center justify-between">
-                      <span className="text-slate-600">
-                        {clienteById.get(clienteid) || clienteid}
-                      </span>
-                      <strong className="text-slate-900">{total}</strong>
-                    </li>
-                  ))}
-              </ul>
-            </article>
-          </div>
+         
 
           <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -649,64 +470,66 @@ export const ReportesPage = () => {
             </div>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-[1200px] text-left text-sm">
                 <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
                   <tr className="border-b border-slate-200">
-                    <th className="py-3 pr-4">Referencia</th>
-                    <th className="py-3 pr-4">Modelo</th>
-                    <th className="py-3 pr-4">Cliente</th>
-                    <th className="py-3 pr-4">Estado</th>
-                    <th className="py-3 pr-4">Segmento</th>
-                    <th className="py-3 pr-4">Fecha</th>
-                    <th className="py-3 pr-4">Stock</th>
+                    <th className="py-3 pr-4">referencia</th>
+                    <th className="py-3 pr-4">segmento</th>
+                    <th className="py-3 pr-4">licencia</th>
+                    <th className="py-3 pr-4">dima</th>
+                    <th className="py-3 pr-4">fechaelaboracion</th>
+                    <th className="py-3 pr-4">estado</th>
+                    <th className="py-3 pr-4">variacion</th>
+                    <th className="py-3 pr-4">cliente</th>
+                    <th className="py-3 pr-4">molderia</th>
+                    <th className="py-3 pr-4">ubicacion</th>
+                    <th className="py-3 pr-4">disenador</th>
                   </tr>
                 </thead>
                 <tbody>
                   {limitedRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                      <td colSpan={11} className="py-6 text-center text-slate-400">
                         No hay registros que coincidan con los filtros.
                       </td>
                     </tr>
                   )}
                   {limitedRows.map((muestra) => {
-                    const rawDate =
-                      muestra.fechaelaboracion ??
-                      muestra.fechaElaboracion ??
-                      muestra.createdAt ??
-                      muestra.createdat ??
-                      muestra.fecha ??
-                      muestra.fechaCreacion;
-                    const parsed = toDate(rawDate);
-                    const stock = stockByMuestra.get(muestra.id) || 0;
+                    const clientesMap = catalogs.clientesMap || {};
+                    const molderiasMap = catalogs.molderiasMap || {};
+                    const ubicacionesMap = catalogs.ubicacionesMap || {};
+                    const disenadoresMap = catalogs.disenadoresMap || {};
+                    const clienteNombre = clientesMap[muestra.clienteid] || clienteById.get(muestra.clienteid) || "-";
+                    const molderiaNombre = molderiasMap[muestra.molderiaid] || "-";
+                    const ubicacionNombre = ubicacionesMap[muestra.ubicacionid] || "-";
+                    const disenadorNombre = disenadoresMap[muestra.disenadorid] || "-";
 
                     return (
                       <tr key={muestra.id} className="border-b border-slate-100">
-                        <td className="py-3 pr-4 font-semibold text-slate-900">
-                          {muestra.referencia || "Sin referencia"}
-                        </td>
+                        <td className="py-3 pr-4 font-semibold text-slate-900">{muestra.referencia || "-"}</td>
+                        <td className="py-3 pr-4 text-slate-600">{muestra.segmento || "-"}</td>
+                        <td className="py-3 pr-4 text-slate-600">{muestra.licencia || "-"}</td>
+                        <td className="py-3 pr-4 text-slate-600">{muestra.dima || "-"}</td>
                         <td className="py-3 pr-4 text-slate-600">
-                          {muestra.modelo || "-"}
-                        </td>
-                        <td className="py-3 pr-4 text-slate-600">
-                          {clienteById.get(muestra.clienteid) || "Sin cliente"}
+                          {formatDateValue(
+                            muestra.fechaelaboracion ??
+                              muestra.fechaElaboracion ??
+                              muestra.createdAt ??
+                              muestra.createdat ??
+                              muestra.fecha ??
+                              muestra.fechaCreacion,
+                          )}
                         </td>
                         <td className="py-3 pr-4">
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                            {muestra.estado || "Sin estado"}
+                            {muestra.estado || "-"}
                           </span>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">
-                          {muestra.segmento || "-"}
-                        </td>
-                        <td className="py-3 pr-4 text-slate-600">
-                          {parsed ? MONTH_FORMAT.format(parsed) : "-"}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <span className={stock > 0 ? "font-semibold text-emerald-600" : "font-semibold text-slate-500"}>
-                            {stock}
-                          </span>
-                        </td>
+                        <td className="py-3 pr-4 text-slate-600">{formatVariacion(muestra.variacion)}</td>
+                        <td className="py-3 pr-4 text-slate-600">{clienteNombre}</td>
+                        <td className="py-3 pr-4 text-slate-600">{molderiaNombre}</td>
+                        <td className="py-3 pr-4 text-slate-600">{ubicacionNombre}</td>
+                        <td className="py-3 pr-4 text-slate-600">{disenadorNombre}</td>
                       </tr>
                     );
                   })}
@@ -792,36 +615,7 @@ export const ReportesPage = () => {
             </div>
           </article>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              onClick={exportMuestras}
-            >
-              Exportar muestras
-            </button>
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              onClick={exportProduccion}
-            >
-              Exportar produccion
-            </button>
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              onClick={exportClientes}
-            >
-              Exportar clientes
-            </button>
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              onClick={exportInventario}
-            >
-              Exportar inventario
-            </button>
-          </div>
+          
         </>
       )}
     </section>
