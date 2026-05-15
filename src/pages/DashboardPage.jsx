@@ -114,19 +114,11 @@ const capitalize = (value) => {
 };
 
 const normalizePresentacionEstado = (value) => {
-  const normalized = normalizeEstado(value);
-  if (normalized === "rechazada") {
-    return "dada de baja";
-  }
-  return normalized;
+  return normalizeEstado(value);
 };
 
 const normalizeMuestraEstado = (value) => {
-  const normalized = normalizeEstado(value);
-  if (normalized === "rechazada") {
-    return "dada de baja";
-  }
-  return normalized;
+  return normalizeEstado(value);
 };
 
 const MuestrasBarChart = ({ data, muted = false }) => {

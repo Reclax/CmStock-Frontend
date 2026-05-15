@@ -765,6 +765,20 @@ export const MuestrasPage = () => {
   };
 
   const columns = [
+    {
+      key: "fechaelaboracion",
+      label: "Fecha",
+      render: (row) => {
+        if (!row.fechaelaboracion) return "—";
+        const d = new Date(row.fechaelaboracion);
+        if (isNaN(d.getTime())) return row.fechaelaboracion;
+        // Formato: 14-mayo-2026
+        const dia = d.getUTCDate();
+        const mes = d.toLocaleDateString("es-CO", { month: "long", timeZone: "UTC" });
+        const año = d.getUTCFullYear();
+        return `${dia}-${mes}-${año}`;
+      },
+    },
     { key: "referencia", label: "Referencia" },
     { key: "segmento", label: "Segmento" },
     {
@@ -801,21 +815,6 @@ export const MuestrasPage = () => {
         return safe(
           catalogs.disenadoresMap?.[row.disenadorid] ?? row.disenadorid,
         );
-      },
-    },
-    {
-      key: "fechaelaboracion",
-      label: "Fecha",
-      render: (row) => {
-        if (!row.fechaelaboracion) return "—";
-        const d = new Date(row.fechaelaboracion);
-        if (isNaN(d.getTime())) return row.fechaelaboracion;
-        // Formato compacto: 15/ene./25
-        return d.toLocaleDateString("es-CO", {
-          day: "2-digit",
-          month: "short",
-          year: "2-digit",
-        });
       },
     },
     {
