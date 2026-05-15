@@ -210,43 +210,55 @@ export const MuestraDetailPage = () => {
           </div>
         </header>
 
-        {/* Ubicación en Bodega */}
-        {ubicacion && (
-          <section className="mb-8 rounded-lg bg-white p-6 shadow-sm border border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-            <div className="mb-4 flex items-center gap-3">
-              <FiMapPin className="h-6 w-6 text-[#1B3D8F]" />
-              <h2 className="text-2xl font-bold text-slate-900">
-                Ubicación en Bodega
-              </h2>
+        {/* Fotos */}
+        <section className="mb-8 rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+          <div className="mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-slate-900">Fotos</h2>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1B3D8F] text-xs font-black text-white">
+              {fotos.length}
+            </span>
+          </div>
+          {loadingFotos ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
+              Cargando fotos...
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-lg bg-blue-50 p-4">
-                <p className="text-xs font-semibold text-slate-600 uppercase">
-                  Ubicación
-                </p>
-                <p className="mt-2 text-2xl font-bold text-[#1B3D8F]">
-                  {ubicacion.nombre}
-                </p>
-              </div>
-              <div className="rounded-lg bg-blue-50 p-4">
-                <p className="text-xs font-semibold text-slate-600 uppercase">
-                  Tipo
-                </p>
-                <p className="mt-2 text-xl font-semibold text-slate-900">
-                  {ubicacion.tipo || "-"}
-                </p>
-              </div>
+          ) : fotos.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center">
+              <FiCamera className="h-8 w-8 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-400">
+                Sin fotos registradas
+              </p>
+              <p className="text-xs text-slate-400">
+                Esta muestra no tiene fotos cargadas.
+              </p>
             </div>
-            {ubicacion.descripcion && (
-              <div className="mt-4 rounded-lg bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-600 uppercase">
-                  Descripción
-                </p>
-                <p className="mt-2 text-slate-700">{ubicacion.descripcion}</p>
-              </div>
-            )}
-          </section>
-        )}
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {fotos.map((foto) => (
+                <a
+                  key={foto.id}
+                  href={`${API_ROOT_URL}${foto.urlarchivo}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm transition hover:shadow-md"
+                >
+                  <img
+                    src={`${API_ROOT_URL}${foto.urlarchivo}`}
+                    alt="Foto muestra"
+                    className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
+                    <span className="text-sm font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                      Ver
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* Información de Muestra */}
         <section className="mb-8 rounded-lg bg-white p-6 shadow-sm border border-slate-200">
@@ -563,55 +575,43 @@ export const MuestraDetailPage = () => {
           </section>
         )}
 
-        {/* Fotos */}
-        <section className="mb-8 rounded-lg bg-white p-6 shadow-sm border border-slate-200">
-          <div className="mb-6 flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-slate-900">Fotos</h2>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1B3D8F] text-xs font-black text-white">
-              {fotos.length}
-            </span>
-          </div>
-          {loadingFotos ? (
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#1B3D8F]" />
-              Cargando fotos...
+        {/* Ubicación en Bodega */}
+        {ubicacion && (
+          <section className="mb-8 rounded-lg bg-white p-6 shadow-sm border border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+            <div className="mb-4 flex items-center gap-3">
+              <FiMapPin className="h-6 w-6 text-[#1B3D8F]" />
+              <h2 className="text-2xl font-bold text-slate-900">
+                Ubicación en Bodega
+              </h2>
             </div>
-          ) : fotos.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center">
-              <FiCamera className="h-8 w-8 text-slate-300" />
-              <p className="text-sm font-semibold text-slate-400">
-                Sin fotos registradas
-              </p>
-              <p className="text-xs text-slate-400">
-                Esta muestra no tiene fotos cargadas.
-              </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-lg bg-blue-50 p-4">
+                <p className="text-xs font-semibold text-slate-600 uppercase">
+                  Ubicación
+                </p>
+                <p className="mt-2 text-2xl font-bold text-[#1B3D8F]">
+                  {ubicacion.nombre}
+                </p>
+              </div>
+              <div className="rounded-lg bg-blue-50 p-4">
+                <p className="text-xs font-semibold text-slate-600 uppercase">
+                  Tipo
+                </p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">
+                  {ubicacion.tipo || "-"}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {fotos.map((foto) => (
-                <a
-                  key={foto.id}
-                  href={`${API_ROOT_URL}${foto.urlarchivo}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm transition hover:shadow-md"
-                >
-                  <img
-                    src={`${API_ROOT_URL}${foto.urlarchivo}`}
-                    alt="Foto muestra"
-                    className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition duration-200 group-hover:bg-black/20">
-                    <span className="text-sm font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                      Ver
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
+            {ubicacion.descripcion && (
+              <div className="mt-4 rounded-lg bg-slate-50 p-4">
+                <p className="text-xs font-semibold text-slate-600 uppercase">
+                  Descripción
+                </p>
+                <p className="mt-2 text-slate-700">{ubicacion.descripcion}</p>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Footer */}
         <footer className="rounded-lg bg-slate-900 p-6 text-center text-slate-400">
