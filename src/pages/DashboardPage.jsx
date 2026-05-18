@@ -118,6 +118,15 @@ const normalizeMuestraEstado = (value) => {
   return normalizeEstado(value);
 };
 
+const getPresentacionDate = (presentacion) =>
+  toDate(
+    presentacion?.fecha ??
+      presentacion?.fechapresentacion ??
+      presentacion?.fechaPresentacion ??
+      presentacion?.createdAt ??
+      presentacion?.createdat,
+  );
+
 const MuestrasBarChart = ({ data, muted = false }) => {
   const fill = muted ? "#cbd5e1" : "#1B3D8F";
 
@@ -586,7 +595,7 @@ export const DashboardPage = () => {
         dadasDeBaja += 1;
       }
 
-      if (hasProduccion && estadoKey === "aprobada") {
+      if (hasProduccion && (estadoKey === "aprobada" || estadoKey === "dada de baja")) {
         ordenProduccion += 1;
       }
 
@@ -617,10 +626,31 @@ export const DashboardPage = () => {
       if (selectedClienteId && presentacion.clienteid !== selectedClienteId) {
         return false;
       }
-      const created = toDate(presentacion.fecha);
+      const created = getPresentacionDate(presentacion);
       if (selectedYear && (!created || created.getFullYear() !== Number(selectedYear))) {
         return false;
       }
+      return true;
+    });
+
+    const produccionesFiltradas = data.producciones.filter((produccion) => {
+      if (selectedClienteId && produccion.clienteid !== selectedClienteId) {
+        return false;
+      }
+
+      if (selectedYear) {
+        const created = toDate(
+          produccion.fechaproduccion ??
+            produccion.fechaProduccion ??
+            produccion.createdAt ??
+            produccion.createdat,
+        );
+
+        if (!created || created.getFullYear() !== Number(selectedYear)) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -632,9 +662,7 @@ export const DashboardPage = () => {
 
     for (const presentacion of presentacionesFiltered) {
       const estadoKey = normalizePresentacionEstado(presentacion.resultado);
-      if (presentacionCounts[estadoKey] !== undefined) {
-        presentacionCounts[estadoKey] += 1;
-      }
+      presentacionCounts[estadoKey] = (presentacionCounts[estadoKey] || 0) + 1;
     }
 
     const presentacionItems = [
@@ -643,17 +671,20 @@ export const DashboardPage = () => {
       { key: "dada de baja", label: "Dadas de baja", value: presentacionCounts["dada de baja"] },
     ];
 
+    for (const [estado, value] of Object.entries(presentacionCounts)) {
+      if (value > 0 && !presentacionItems.some((item) => item.key === estado)) {
+        presentacionItems.push({
+          key: estado,
+          label: capitalize(estado),
+          value,
+        });
+      }
+    }
+
     const clienteMap = new Map();
-    for (const item of filteredMuestras) {
-      const { muestra } = item;
-      // Removido el filtro de "aprobada" para que tome en cuenta todas las muestras derivadas a producción, incluyendo las dadas de baja.
-      if (!produccionMuestraIds.has(muestra.id)) {
-        continue;
-      }
-      const id = muestra.clienteid;
-      if (!id) {
-        continue;
-      }
+    for (const produccion of produccionesFiltradas) {
+      const id = produccion.clienteid;
+      if (!id) continue;
       clienteMap.set(id, (clienteMap.get(id) || 0) + 1);
     }
 
@@ -833,7 +864,7 @@ export const DashboardPage = () => {
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.dadasDeBajaProduccion}
+              value={stats.dadasDeBaja}
               title="Dadas de baja"
               muted={!stats.hasRealData}
             />

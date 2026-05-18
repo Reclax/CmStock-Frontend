@@ -24,23 +24,17 @@ const PAGE_SIZE = 20;
 const tabs = [
   { key: "presentaciones", label: "Presentaciones" },
   { key: "producciones", label: "Producciones" },
+  { key: "variaciones", label: "Variaciones" },
 ];
 
 const initialFilters = {
-  presentaciones: {
-    q: "",
-    clienteId: "",
-    resultado: "",
-    dateFrom: "",
-    dateTo: "",
-  },
-  producciones: {
-    q: "",
-    clienteId: "",
-    mes: "",
-    dateFrom: "",
-    dateTo: "",
-  },
+  q: "",
+  clienteId: "",
+  resultado: "",
+  mes: "",
+  estado: "",
+  dateFrom: "",
+  dateTo: "",
 };
 
 const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
@@ -55,6 +49,7 @@ export const HistorialPage = () => {
   const presentaciones = useCrud(ENDPOINTS.presentaciones);
   const producciones = useCrud(ENDPOINTS.producciones);
   const muestras = useCrud(ENDPOINTS.muestras);
+  const variaciones = useCrud(ENDPOINTS.variaciones);
 
   const [tab, setTab] = useState("presentaciones");
   const [modalOpen, setModalOpen] = useState(false);
@@ -67,35 +62,78 @@ export const HistorialPage = () => {
   const { load: loadPresentaciones } = presentaciones;
   const { load: loadProducciones } = producciones;
   const { load: loadMuestras } = muestras;
+  const { load: loadVariaciones } = variaciones;
 
   useEffect(() => {
     loadPresentaciones();
     loadProducciones();
     loadMuestras();
-  }, [loadPresentaciones, loadProducciones, loadMuestras]);
+    loadVariaciones();
+  }, [loadPresentaciones, loadProducciones, loadMuestras, loadVariaciones]);
 
-  const services = { presentaciones, producciones };
+  const services = { presentaciones, producciones, variaciones };
   const service = services[tab];
+  const canManage = tab !== "variaciones";
 
   useEffect(() => {
     setPage(1);
     setRowToDelete(null);
   }, [tab]);
 
-  const activeFilters = filters[tab];
+  const activeFilters = filters;
 
   useEffect(() => {
     setPage(1);
   }, [activeFilters, tab]);
 
   const muestrasMap = useMemo(() => {
-    return Object.fromEntries(
-      muestras.items.map((item) => [item.id, item.referencia]),
-    );
-  }, [muestras.items]);
+    const map = {};
+    muestras.items.forEach((item) => {
+      map[item.id] = item.referencia;
+    });
+    variaciones.items.forEach((item) => {
+      map[item.id] = item.referencia;
+    });
+    return map;
+  }, [muestras.items, variaciones.items]);
+
+  const estadoOptions = useMemo(() => {
+    if (tab !== "variaciones") {
+      return [];
+    }
+
+    const values = new Set();
+    (service.items || []).forEach((row) => {
+      if (row.estado) values.add(String(row.estado).trim());
+    });
+
+    return Array.from(values)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value }));
+  }, [service.items, tab]);
+
+  const allMuestrasOptions = useMemo(() => {
+    const opts = [];
+    muestras.items.forEach((item) => {
+      opts.push({ value: item.id, label: item.referencia });
+    });
+    variaciones.items.forEach((item) => {
+      opts.push({ value: item.id, label: `${item.referencia} (Var)` });
+    });
+    return opts;
+  }, [muestras.items, variaciones.items]);
 
   const getMuestraLabel = (row) =>
-    row.muestra?.referencia || muestrasMap[row.muestraid] || row.muestraid;
+    row.muestra?.referencia ||
+    row.variacion?.referencia ||
+    muestrasMap[row.muestraid] ||
+    row.muestraid;
+
+  const getVariacionOriginalLabel = (row) =>
+    row.muestraOriginal?.referencia ||
+    muestrasMap[row.muestraOriginalId] ||
+    row.muestraOriginalId;
 
   const filteredRows = useMemo(() => {
     const rows = service.items || [];
@@ -143,7 +181,7 @@ export const HistorialPage = () => {
             return false;
           }
         }
-      } else {
+      } else if (tab === "producciones") {
         if (activeFilters.mes && normalizeText(row.mes) !== normalizeText(activeFilters.mes)) {
           return false;
         }
@@ -154,6 +192,28 @@ export const HistorialPage = () => {
             getMuestraLabel(row),
             catalogs.clientesMap?.[row.clienteid] ?? row.clienteid,
             row.mes,
+          ]
+            .map(normalizeText)
+            .join(" ");
+
+          if (!haystack.includes(query)) {
+            return false;
+          }
+        }
+      } else {
+        if (activeFilters.estado && normalizeText(row.estado) !== normalizeText(activeFilters.estado)) {
+          return false;
+        }
+
+        if (query) {
+          const haystack = [
+            row.referencia,
+            row.orden,
+            getVariacionOriginalLabel(row),
+            catalogs.clientesMap?.[row.clienteid] ?? row.clienteid,
+            row.segmento,
+            row.estado,
+            row.observaciones,
           ]
             .map(normalizeText)
             .join(" ");
@@ -194,12 +254,15 @@ export const HistorialPage = () => {
   });
 
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
+  const totalLabel =
+    tab === "presentaciones"
+      ? "presentaciones"
+      : tab === "producciones"
+        ? "producciones"
+        : "variaciones";
 
   const clearFilters = () => {
-    setFilters((prev) => ({
-      ...prev,
-      [tab]: initialFilters[tab],
-    }));
+    setFilters(initialFilters);
   };
 
   const clienteOptions = useMemo(
@@ -225,6 +288,9 @@ export const HistorialPage = () => {
   }, [service.items]);
 
   const openForm = (row = null) => {
+    if (!canManage) {
+      return;
+    }
     setEditing(row);
     setForm(row ? { ...row } : {});
     setModalOpen(true);
@@ -302,7 +368,6 @@ export const HistorialPage = () => {
       },
     ],
     producciones: [
-      { key: "ordennumero", label: "Orden" },
       { key: "muestraid", label: "Referencia", render: getMuestraLabel },
       {
         key: "clienteid",
@@ -317,17 +382,41 @@ export const HistorialPage = () => {
       },
       { key: "mes", label: "Mes" },
     ],
+    variaciones: [
+      { key: "referencia", label: "Referencia" },
+      {
+        key: "muestraOriginalId",
+        label: "Original",
+        render: getVariacionOriginalLabel,
+      },
+      {
+        key: "clienteid",
+        label: "Cliente",
+        render: (row) => catalogs.clientesMap[row.clienteid] || row.clienteid,
+      },
+      { key: "segmento", label: "Segmento" },
+      { key: "estado", label: "Estado" },
+      {
+        key: "fechaelaboracion",
+        label: "Fecha",
+        render: (row) => toDateInput(row.fechaelaboracion),
+      },
+    ],
   };
 
   const filterTitle =
     tab === "presentaciones"
       ? "Filtrar presentaciones"
-      : "Filtrar producciones";
+      : tab === "producciones"
+        ? "Filtrar producciones"
+        : "Filtrar variaciones";
 
   const filterPlaceholder =
     tab === "presentaciones"
       ? "Buscar por referencia, cliente u observación..."
-      : "Buscar por orden, referencia o cliente...";
+      : tab === "producciones"
+        ? "Buscar por orden, referencia o cliente..."
+        : "Buscar por referencia, original o cliente...";
 
   return (
     <section className="space-y-5">
@@ -350,10 +439,7 @@ export const HistorialPage = () => {
             placeholder={filterPlaceholder}
             value={activeFilters.q}
             onChange={(event) =>
-              setFilters((prev) => ({
-                ...prev,
-                [tab]: { ...prev[tab], q: event.target.value },
-              }))
+              setFilters((prev) => ({ ...prev, q: event.target.value }))
             }
           />
         </div>
@@ -373,13 +459,15 @@ export const HistorialPage = () => {
             </span>
           )}
         </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
-          onClick={() => openForm()}
-        >
-          <FiPlus className="h-4 w-4" /> Nuevo registro
-        </button>
+          {canManage && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#1B3D8F] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163272] active:scale-[0.98]"
+              onClick={() => openForm()}
+            >
+              <FiPlus className="h-4 w-4" /> Nuevo registro
+            </button>
+          )}
         {activeFilterCount > 0 && (
           <button
             type="button"
@@ -402,10 +490,7 @@ export const HistorialPage = () => {
               className={inputCls}
               value={activeFilters.clienteId}
               onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  [tab]: { ...prev[tab], clienteId: event.target.value },
-                }))
+                setFilters((prev) => ({ ...prev, clienteId: event.target.value }))
               }
             >
               <option value="">Todos los clientes</option>
@@ -421,10 +506,7 @@ export const HistorialPage = () => {
                 className={inputCls}
                 value={activeFilters.resultado}
                 onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    [tab]: { ...prev[tab], resultado: event.target.value },
-                  }))
+                  setFilters((prev) => ({ ...prev, resultado: event.target.value }))
                 }
               >
                 <option value="">Todos los resultados</option>
@@ -434,19 +516,31 @@ export const HistorialPage = () => {
                   </option>
                 ))}
               </select>
-            ) : (
+            ) : tab === "producciones" ? (
               <select
                 className={inputCls}
                 value={activeFilters.mes}
                 onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    [tab]: { ...prev[tab], mes: event.target.value },
-                  }))
+                  setFilters((prev) => ({ ...prev, mes: event.target.value }))
                 }
               >
                 <option value="">Todos los meses</option>
                 {mesOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                className={inputCls}
+                value={activeFilters.estado}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, estado: event.target.value }))
+                }
+              >
+                <option value="">Todos los estados</option>
+                {estadoOptions.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
@@ -459,10 +553,7 @@ export const HistorialPage = () => {
               className={inputCls}
               value={activeFilters.dateFrom}
               onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  [tab]: { ...prev[tab], dateFrom: event.target.value },
-                }))
+                setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))
               }
             />
 
@@ -471,10 +562,7 @@ export const HistorialPage = () => {
               className={inputCls}
               value={activeFilters.dateTo}
               onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  [tab]: { ...prev[tab], dateTo: event.target.value },
-                }))
+                setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
               }
             />
           </div>
@@ -499,12 +587,22 @@ export const HistorialPage = () => {
       </div>
 
       <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="text-sm font-medium text-slate-600">
+            {startIndex}-{endIndex} de {totalItems} {totalLabel}
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+            <span className="font-medium text-slate-500">Total</span>
+            <strong className="text-[#1B3D8F]">{totalItems}</strong>
+          </div>
+        </div>
+
         <div className="p-5">
           <DataGrid
             columns={columnsByTab[tab]}
             rows={paginatedRows}
-            onEdit={openForm}
-            onDelete={(row) => setRowToDelete(row)}
+            onEdit={canManage ? openForm : undefined}
+            onDelete={canManage ? (row) => setRowToDelete(row) : undefined}
             minWidthClass="min-w-full"
             containerClassName="shadow-none"
           />
@@ -587,12 +685,12 @@ export const HistorialPage = () => {
           </div>
 
           <span className="text-slate-500">
-            Results {startIndex} to {endIndex} of {totalItems}
+            Página {safePage} de {safeTotal}
           </span>
         </div>
       </article>
 
-      {rowToDelete && (
+      {canManage && rowToDelete && (
         <Modal
           title="Confirmar eliminacion"
           onClose={() => setRowToDelete(null)}
@@ -630,7 +728,7 @@ export const HistorialPage = () => {
         </Modal>
       )}
 
-      {modalOpen && (
+      {canManage && modalOpen && (
         <Modal
           title={editing ? "Editar registro" : "Nuevo registro"}
           onClose={closeForm}
@@ -644,18 +742,12 @@ export const HistorialPage = () => {
                       Muestra *
                     </span>
                     <Select
-                      options={muestras.items.map((item) => ({
-                        value: item.id,
-                        label: item.referencia,
-                      }))}
+                      options={allMuestrasOptions}
                       value={
                         form.muestraid
-                          ? {
+                          ? allMuestrasOptions.find((o) => o.value === form.muestraid) || {
                               value: form.muestraid,
-                              label:
-                                muestras.items.find(
-                                  (m) => m.id === form.muestraid,
-                                )?.referencia || form.muestraid,
+                              label: form.muestraid,
                             }
                           : null
                       }
@@ -807,18 +899,12 @@ export const HistorialPage = () => {
                       Muestra *
                     </span>
                     <Select
-                      options={muestras.items.map((item) => ({
-                        value: item.id,
-                        label: item.referencia,
-                      }))}
+                      options={allMuestrasOptions}
                       value={
                         form.muestraid
-                          ? {
+                          ? allMuestrasOptions.find((o) => o.value === form.muestraid) || {
                               value: form.muestraid,
-                              label:
-                                muestras.items.find(
-                                  (m) => m.id === form.muestraid,
-                                )?.referencia || form.muestraid,
+                              label: form.muestraid,
                             }
                           : null
                       }

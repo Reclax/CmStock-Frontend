@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
-      allowedHosts: [".ngrok-free.dev"],
+      allowedHosts: [".ngrok-free.dev", ".trycloudflare.com"],
       proxy: {
         "/api": {
           target: "http://localhost:3000",
