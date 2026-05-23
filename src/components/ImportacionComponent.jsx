@@ -7,7 +7,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
     baseDis: null,
     aprobaciones: null,
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
@@ -78,7 +78,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
         });
         setFiles({ baseDis: null, aprobaciones: null });
         setProgress(null);
-        
+
         if (onImportComplete) {
           onImportComplete(response.data);
         }
@@ -101,7 +101,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
           <FiUpload className="text-indigo-600" />
           Importar datos desde Excel
         </h2>
-        
+
         <div className="space-y-4">
           {/* BASE DIS File */}
           <div>
@@ -123,11 +123,10 @@ export const ImportacionComponent = ({ onImportComplete }) => {
                 onDragLeave={(e) => handleDrag(e, 'baseDis')}
                 onDragOver={(e) => handleDrag(e, 'baseDis')}
                 onDrop={(e) => handleDrop(e, 'baseDis')}
-                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${
-                  dragActive.baseDis
+                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${dragActive.baseDis
                     ? "border-indigo-500 bg-indigo-100"
                     : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
-                }`}
+                  }`}
               >
                 {files.baseDis ? (
                   <span className="text-green-600 font-semibold flex items-center justify-center gap-2">
@@ -145,7 +144,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
           {/* APROBACIONES File */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              ✅ Archivo Formato Aprobaciones.xlsx
+              ✅ Archivo Control Diseño.xlsx
             </label>
             <div className="relative">
               <input
@@ -162,11 +161,10 @@ export const ImportacionComponent = ({ onImportComplete }) => {
                 onDragLeave={(e) => handleDrag(e, 'aprobaciones')}
                 onDragOver={(e) => handleDrag(e, 'aprobaciones')}
                 onDrop={(e) => handleDrop(e, 'aprobaciones')}
-                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${
-                  dragActive.aprobaciones
+                className={`block w-full px-4 py-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${dragActive.aprobaciones
                     ? "border-indigo-500 bg-indigo-100"
                     : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
-                }`}
+                  }`}
               >
                 {files.aprobaciones ? (
                   <span className="text-green-600 font-semibold flex items-center justify-center gap-2">
@@ -200,11 +198,10 @@ export const ImportacionComponent = ({ onImportComplete }) => {
           <button
             onClick={handleImport}
             disabled={loading || !files.baseDis || !files.aprobaciones}
-            className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${
-              loading || !files.baseDis || !files.aprobaciones
+            className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${loading || !files.baseDis || !files.aprobaciones
                 ? 'bg-slate-300 text-slate-600 cursor-not-allowed'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
-            }`}
+              }`}
           >
             {loading ? (
               <>
@@ -222,80 +219,80 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       </div>
 
 
-        {/* Status Results */}
-        {status && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* BASE DIS Result */}
-              {status.baseDis && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <FiCheckCircle className="text-green-600 mt-0.5" />
-                    <h3 className="font-semibold text-green-900">BASE DIS 2025</h3>
-                  </div>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-green-700">Registros procesados:</dt>
-                      <dd className="font-semibold text-green-900">{status.baseDis.procesados}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-green-700">Nuevos creados:</dt>
-                      <dd className="font-semibold text-green-900">{status.baseDis.creados}</dd>
-                    </div>
-                    {status.baseDis.variacionesCreadas > 0 && (
-                      <div className="flex justify-between">
-                        <dt className="text-green-700">Variaciones creadas:</dt>
-                        <dd className="font-semibold text-green-900">{status.baseDis.variacionesCreadas}</dd>
-                      </div>
-                    )}
-                  </dl>
-                </div>
-              )}
-
-              {/* APROBACIONES Result */}
-              {status.aprobaciones && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <FiCheckCircle className="text-green-600 mt-0.5" />
-                    <h3 className="font-semibold text-green-900">Aprobaciones</h3>
-                  </div>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-green-700">Registros procesados:</dt>
-                      <dd className="font-semibold text-green-900">{status.aprobaciones.procesados}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-green-700">Presentaciones creadas:</dt>
-                      <dd className="font-semibold text-green-900">{status.aprobaciones.creados}</dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
-            </div>
-
-            {/* ERRORES - Si existen */}
-            {(status.baseDis?.errores?.length > 0 || status.aprobaciones?.errores?.length > 0) && (
-              <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-4">
+      {/* Status Results */}
+      {status && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* BASE DIS Result */}
+            {status.baseDis && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-start gap-3 mb-3">
-                  <FiAlertCircle className="text-orange-600 mt-0.5 flex-shrink-0" />
-                  <h3 className="font-semibold text-orange-900">Errores encontrados durante la importación</h3>
+                  <FiCheckCircle className="text-green-600 mt-0.5" />
+                  <h3 className="font-semibold text-green-900">BASE DIS 2025</h3>
                 </div>
-                <div className="max-h-64 overflow-y-auto space-y-1">
-                  {status.baseDis?.errores?.map((error, idx) => (
-                    <div key={`basedis-error-${idx}`} className="text-sm text-orange-800 font-mono bg-white p-2 rounded border border-orange-200">
-                      ❌ {error}
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-green-700">Registros procesados:</dt>
+                    <dd className="font-semibold text-green-900">{status.baseDis.procesados}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-green-700">Nuevos creados:</dt>
+                    <dd className="font-semibold text-green-900">{status.baseDis.creados}</dd>
+                  </div>
+                  {status.baseDis.variacionesCreadas > 0 && (
+                    <div className="flex justify-between">
+                      <dt className="text-green-700">Variaciones creadas:</dt>
+                      <dd className="font-semibold text-green-900">{status.baseDis.variacionesCreadas}</dd>
                     </div>
-                  ))}
-                  {status.aprobaciones?.errores?.map((error, idx) => (
-                    <div key={`aprobaciones-error-${idx}`} className="text-sm text-orange-800 font-mono bg-white p-2 rounded border border-orange-200">
-                      ❌ {error}
-                    </div>
-                  ))}
+                  )}
+                </dl>
+              </div>
+            )}
+
+            {/* APROBACIONES Result */}
+            {status.aprobaciones && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <FiCheckCircle className="text-green-600 mt-0.5" />
+                  <h3 className="font-semibold text-green-900">Aprobaciones</h3>
                 </div>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-green-700">Registros procesados:</dt>
+                    <dd className="font-semibold text-green-900">{status.aprobaciones.procesados}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-green-700">Presentaciones creadas:</dt>
+                    <dd className="font-semibold text-green-900">{status.aprobaciones.creados}</dd>
+                  </div>
+                </dl>
               </div>
             )}
           </div>
-        )}
+
+          {/* ERRORES - Si existen */}
+          {(status.baseDis?.errores?.length > 0 || status.aprobaciones?.errores?.length > 0) && (
+            <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <FiAlertCircle className="text-orange-600 mt-0.5 flex-shrink-0" />
+                <h3 className="font-semibold text-orange-900">Errores encontrados durante la importación</h3>
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {status.baseDis?.errores?.map((error, idx) => (
+                  <div key={`basedis-error-${idx}`} className="text-sm text-orange-800 font-mono bg-white p-2 rounded border border-orange-200">
+                    ❌ {error}
+                  </div>
+                ))}
+                {status.aprobaciones?.errores?.map((error, idx) => (
+                  <div key={`aprobaciones-error-${idx}`} className="text-sm text-orange-800 font-mono bg-white p-2 rounded border border-orange-200">
+                    ❌ {error}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Info Box */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">

@@ -10,6 +10,7 @@ import { useParams } from "react-router-dom";
 import { api, API_ROOT_URL } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import { useCatalogData } from "../hooks/useCatalogData";
+import { parseDateValue } from "../utils/format";
 
 export const MuestraDetailPage = () => {
   const { muestraId } = useParams();
@@ -374,7 +375,7 @@ export const MuestraDetailPage = () => {
                 </p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">
                   {muestra.fechaelaboracion
-                    ? new Date(muestra.fechaelaboracion).toLocaleDateString(
+                    ? parseDateValue(muestra.fechaelaboracion)?.toLocaleDateString(
                         "es-CO",
                         {
                           year: "numeric",

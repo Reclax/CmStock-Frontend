@@ -14,6 +14,7 @@ import {
 import { api } from "../api/client";
 import { ENDPOINTS } from "../api/endpoints";
 import AppLoading from "../components/AppLoading";
+import { parseDateValue } from "../utils/format";
 
 const MONTH_NAMES = [
   "Ene",
@@ -38,7 +39,7 @@ const toDate = (value) => {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = parseDateValue(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
