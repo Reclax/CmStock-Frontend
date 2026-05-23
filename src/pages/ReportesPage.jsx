@@ -5,6 +5,7 @@ import { exportToExcel } from "../utils/excel";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { FiChevronsLeft, FiChevronLeft, FiChevronRight, FiChevronsRight, FiSearch, FiFilter, FiX } from "react-icons/fi";
 import { buildPagination } from "../utils/pagination";
+import { parseDateValue } from "../utils/format";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("es-CO", {
   day: "2-digit",
@@ -20,7 +21,7 @@ const toCollection = (payload) => {
 
 const toDate = (value) => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const parsed = parseDateValue(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
