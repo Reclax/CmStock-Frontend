@@ -163,14 +163,14 @@ const MuestrasBarChart = ({ data, muted = false }) => {
   );
 };
 
-const fetchAllMuestras = async () => {
+const fetchPaginated = async (endpoint) => {
   let page = 1;
   let totalPages = 1;
   const allItems = [];
 
   while (page <= totalPages) {
     const payload = await api.get(
-      `${ENDPOINTS.muestras}?page=${page}&limit=${MUESTRAS_PAGE_LIMIT}`,
+      `${endpoint}?page=${page}&limit=${MUESTRAS_PAGE_LIMIT}`,
     );
     const items = toCollection(payload);
     allItems.push(...items);
@@ -182,7 +182,6 @@ const fetchAllMuestras = async () => {
 
     page += 1;
   }
-
   return allItems;
 };
 
@@ -378,6 +377,7 @@ export const DashboardPage = () => {
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
+      variaciones: [],
       muestrasPorCliente: [],
       presentaciones: [],
       producciones: [],
@@ -402,13 +402,15 @@ export const DashboardPage = () => {
     try {
       const [
         muestras,
+        variaciones,
         muestrasPorCliente,
         presentaciones,
         producciones,
         movimientos,
         clientes,
       ] = await Promise.all([
-        fetchAllMuestras(),
+        fetchPaginated(ENDPOINTS.muestras),
+        fetchPaginated(ENDPOINTS.variaciones),
         api.get(`${ENDPOINTS.muestras}/consultas/muestras-por-cliente`),
         api.get(ENDPOINTS.presentaciones),
         api.get(ENDPOINTS.producciones),
@@ -418,6 +420,7 @@ export const DashboardPage = () => {
 
       const newData = {
         muestras: toCollection(muestras),
+        variaciones: toCollection(variaciones),
         muestrasPorCliente: toCollection(muestrasPorCliente),
         presentaciones: toCollection(presentaciones),
         producciones: toCollection(producciones),
@@ -568,6 +571,43 @@ export const DashboardPage = () => {
     for (const item of muestrasWithDate) {
       const yearKey = item.created.getFullYear();
       yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
+    }
+
+    const variacionesWithDate = [];
+    for (const variacion of data.variaciones || []) {
+      const created = toDate(
+        variacion.fechaelaboracion ??
+          variacion.fechaElaboracion ??
+          variacion.createdAt ??
+          variacion.createdat ??
+          variacion.fecha ??
+          variacion.fechaCreacion
+      );
+      if (created) {
+        variacionesWithDate.push({ variacion, created });
+        const yearKey = created.getFullYear();
+        yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
+      }
+    }
+
+    const filteredVariaciones = variacionesWithDate.filter((item) => {
+      if (selectedYear && item.created.getFullYear() !== Number(selectedYear)) {
+        return false;
+      }
+      if (selectedClienteId && item.variacion.clienteid !== selectedClienteId) {
+        return false;
+      }
+      if (selectedMuestraEstado) {
+        const estadoKey = normalizeMuestraEstado(item.variacion.estado);
+        if (estadoKey !== selectedMuestraEstado) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    for (const item of filteredVariaciones) {
+      monthlyMuestras[item.created.getMonth()] += 1;
     }
 
     const produccionMuestraIds = new Set(

@@ -144,7 +144,11 @@ export const HistorialPage = () => {
     return rows.filter((row) => {
       const rowClienteId = String(row.clienteid ?? "");
       const rowDate = normalizeDateValue(
-        tab === "presentaciones" ? row.fecha : row.fechaproduccion,
+        tab === "presentaciones"
+          ? row.fecha
+          : tab === "producciones"
+            ? row.fechaproduccion
+            : row.fechaelaboracion || row.createdAt || row.createdat,
       );
 
       if (activeFilters.clienteId && rowClienteId !== activeFilters.clienteId) {
@@ -273,7 +277,8 @@ export const HistorialPage = () => {
   const resultadoOptions = [
     { value: "aprobada", label: "Aprobada" },
     { value: "pendiente", label: "Pendiente" },
-    { value: "rechazada", label: "Dado de baja" },
+    { value: "dada de baja", label: "Dado de baja" },
+    {value: "presentada",label:"Presentada"},
   ];
 
   const mesOptions = useMemo(() => {

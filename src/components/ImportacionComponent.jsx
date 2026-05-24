@@ -1,6 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiUpload, FiCheckCircle, FiAlertCircle, FiLoader } from "react-icons/fi";
 import { api } from "../api/client";
+
+const IMPORT_STATUS_KEY = "cmstock_import_status";
+
+const readImportStatus = () => {
+  try {
+    const raw = sessionStorage.getItem(IMPORT_STATUS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeImportStatus = (value) => {
+  try {
+    if (value) {
+      sessionStorage.setItem(IMPORT_STATUS_KEY, JSON.stringify(value));
+    } else {
+      sessionStorage.removeItem(IMPORT_STATUS_KEY);
+    }
+  } catch {
+    // Ignorar errores de almacenamiento para no bloquear la importación.
+  }
+};
 
 export const ImportacionComponent = ({ onImportComplete }) => {
   const [files, setFiles] = useState({
@@ -9,13 +32,20 @@ export const ImportacionComponent = ({ onImportComplete }) => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
+  const [status, setStatus] = useState(() => readImportStatus());
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
   const [dragActive, setDragActive] = useState({
     baseDis: false,
     aprobaciones: false
   });
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleDrag = (e, fileType) => {
     e.preventDefault();
@@ -57,10 +87,20 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       return;
     }
 
+    const runningStatus = {
+      phase: "running",
+      message: "La importación está en curso. Puedes cambiar de página y volver para ver el resultado.",
+      startedAt: Date.now(),
+    };
+
+    writeImportStatus(runningStatus);
+    if (isMountedRef.current) {
+      setStatus(runningStatus);
+    }
+
     setLoading(true);
     setProgress('Iniciando importación...');
     setError(null);
-    setStatus(null);
 
     try {
       const formData = new FormData();
@@ -72,26 +112,67 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       const response = await api.postForm('/importacion/todos', formData);
 
       if (response && response.success) {
-        setStatus({
+        const successStatus = {
+          phase: "success",
           baseDis: response.data?.baseDis,
           aprobaciones: response.data?.aprobaciones,
-        });
-        setFiles({ baseDis: null, aprobaciones: null });
-        setProgress(null);
+          finishedAt: Date.now(),
+          message: response.message || 'Importación completada correctamente',
+        };
+
+        writeImportStatus(successStatus);
+
+        if (isMountedRef.current) {
+          setStatus(successStatus);
+          setFiles({ baseDis: null, aprobaciones: null });
+          setProgress(null);
+        }
 
         if (onImportComplete) {
           onImportComplete(response.data);
         }
       } else {
-        setError(response.message || response.data?.message || 'Error en la importación');
+        const message = response.message || response.data?.message || 'Error en la importación';
+        const errorStatus = {
+          phase: "error",
+          message,
+          finishedAt: Date.now(),
+        };
+
+        writeImportStatus(errorStatus);
+
+        if (isMountedRef.current) {
+          setError(message);
+          setStatus(errorStatus);
+        }
       }
     } catch (err) {
       console.error('Error:', err);
-      setError(err.response?.data?.message || err.message || 'Error en la importación');
+      const message = err.response?.data?.message || err.message || 'Error en la importación';
+      const errorStatus = {
+        phase: "error",
+        message,
+        finishedAt: Date.now(),
+      };
+
+      writeImportStatus(errorStatus);
+
+      if (isMountedRef.current) {
+        setError(message);
+        setStatus(errorStatus);
+      }
     } finally {
-      setLoading(false);
-      setProgress(null);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setProgress(null);
+      }
     }
+  };
+
+  const clearLastResult = () => {
+    writeImportStatus(null);
+    setStatus(null);
+    setError(null);
   };
 
   return (
@@ -219,9 +300,51 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       </div>
 
 
-      {/* Status Results */}
-      {status && (
+      {/* Estado persistente */}
+      {status?.phase === "running" && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <FiLoader className="mt-0.5 animate-spin text-blue-600 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-blue-900">Importación en curso</p>
+              <p className="mt-1 text-sm text-blue-800">{status.message}</p>
+              <p className="mt-2 text-xs text-blue-700/80">
+                Si cambias de página, este estado queda guardado hasta que termine la importación.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearLastResult}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status?.phase === "success" && (
         <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-start gap-3">
+              <FiCheckCircle className="mt-0.5 text-emerald-600 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-emerald-900">Última importación completada</p>
+                <p className="mt-1 text-sm text-emerald-800">{status.message}</p>
+                <p className="mt-2 text-xs text-emerald-700/80">
+                  Puedes volver a esta pantalla en cualquier momento para revisar el resultado.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearLastResult}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* BASE DIS Result */}
             {status.baseDis && (
@@ -291,6 +414,28 @@ export const ImportacionComponent = ({ onImportComplete }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {status?.phase === "error" && (
+        <div className="bg-rose-50 border border-rose-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <FiAlertCircle className="mt-0.5 text-rose-600 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-rose-900">La importación falló</p>
+              <p className="mt-1 text-sm text-rose-800">{status.message}</p>
+              <p className="mt-2 text-xs text-rose-700/80">
+                El mensaje también quedó guardado para que puedas revisarlo al volver a esta pantalla.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearLastResult}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+            >
+              Limpiar
+            </button>
+          </div>
         </div>
       )}
 
