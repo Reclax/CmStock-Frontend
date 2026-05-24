@@ -25,6 +25,46 @@ import { EstadoBadge, inputCls, selectStyles } from "../components/Muestras/Mues
 import { emptyForm, esMuestraVariacion, toCollection, safe, formatearReferenciaVariacion, ESTADO_META } from "../components/Muestras/MuestrasUtils";
 
 const PAGE_SIZE = 20;
+const MUESTRAS_VIEW_STATE_KEY = "cmstock_muestras_view_state";
+
+const initialFilters = {
+  q: "",
+  estado: "",
+  segmento: "",
+  clienteid: "",
+  ubicacionid: "",
+  licenciado: "",
+  dima: "",
+  molderia: "",
+  molderiaid: "",
+  disenadorid: "",
+  mes: "",
+  from: "",
+  to: "",
+};
+
+const readViewState = () => {
+  try {
+    const raw = sessionStorage.getItem(MUESTRAS_VIEW_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeViewState = (state) => {
+  try {
+    if (!state) {
+      sessionStorage.removeItem(MUESTRAS_VIEW_STATE_KEY);
+      return;
+    }
+    sessionStorage.setItem(MUESTRAS_VIEW_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // No bloquear la UI si el navegador restringe sessionStorage.
+  }
+};
 
 export const MuestrasPage = () => {
   const catalogs = useCatalogData();
@@ -35,22 +75,12 @@ export const MuestrasPage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [loadingRows, setLoadingRows] = useState(false);
   const [fetchError, setFetchError] = useState("");
-  const [filters, setFilters] = useState({
-    q: "",
-    estado: "",
-    segmento: "",
-    clienteid: "",
-    ubicacionid: "",
-    licenciado: "",
-    dima: "",
-    molderia: "",
-    molderiaid: "",
-    disenadorid: "",
-    mes: "",
-    from: "",
-    to: "",
-  });
-  const [showFilters, setShowFilters] = useState(false);
+  const savedViewState = useMemo(() => readViewState(), []);
+  const [filters, setFilters] = useState(() => ({
+    ...initialFilters,
+    ...(savedViewState?.filters || {}),
+  }));
+  const [showFilters, setShowFilters] = useState(() => Boolean(savedViewState?.showFilters));
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -60,7 +90,7 @@ export const MuestrasPage = () => {
   const [loadingPres, setLoadingPres] = useState(false);
   const [qrUrl, setQrUrl] = useState("");
   const [qrLink, setQrLink] = useState("");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => Number(savedViewState?.page) || 1);
   const debounceRef = useRef(null);
 
   // ── Modal de Presentación (desde clientes sin presentación) ──
@@ -105,6 +135,10 @@ export const MuestrasPage = () => {
   const [newMolderiaName, setNewMolderiaName] = useState("");
   const [creatingMolderia, setCreatingMolderia] = useState(false);
   const [molderiaInputValue, setMolderiaInputValue] = useState("");
+
+  useEffect(() => {
+    writeViewState({ filters, showFilters, page, molderiaInputValue });
+  }, [filters, showFilters, page, molderiaInputValue]);
 
   // ── Estado de Guardado ──
   const [isSaving, setIsSaving] = useState(false);
@@ -290,21 +324,8 @@ export const MuestrasPage = () => {
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const clearFilters = () => {
     setMolderiaInputValue("");
-    setFilters({
-      q: "",
-      estado: "",
-      segmento: "",
-      clienteid: "",
-      ubicacionid: "",
-      licenciado: "",
-      dima: "",
-      molderia: "",
-      molderiaid: "",
-      disenadorid: "",
-      mes: "",
-      from: "",
-      to: "",
-    });
+    setFilters(initialFilters);
+    setPage(1);
   };
 
   const MESES = [

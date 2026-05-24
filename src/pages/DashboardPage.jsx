@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bar,
@@ -6,7 +6,6 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -128,13 +127,44 @@ const getPresentacionDate = (presentacion) =>
       presentacion?.createdat,
   );
 
+const useElementSize = () => {
+  const ref = useRef(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width);
+      const nextHeight = Math.floor(element.getBoundingClientRect().height);
+      setSize((current) => {
+        if (current.width === nextWidth && current.height === nextHeight) {
+          return current;
+        }
+        return { width: nextWidth, height: nextHeight };
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, ...size };
+};
+
 const MuestrasBarChart = ({ data, muted = false }) => {
   const fill = muted ? "#cbd5e1" : "#1B3D8F";
+  const { ref, width, height } = useElementSize();
 
   return (
-    <div className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+    <div ref={ref} className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
+      {width > 0 && height > 0 ? (
+        <BarChart width={width - 16} height={height - 16} data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
           <XAxis
             dataKey="label"
             tickLine={false}
@@ -158,7 +188,7 @@ const MuestrasBarChart = ({ data, muted = false }) => {
           />
           <Bar dataKey="value" fill={fill} radius={[10, 10, 0, 0]} />
         </BarChart>
-      </ResponsiveContainer>
+      ) : null}
     </div>
   );
 };
@@ -218,6 +248,7 @@ const CategoryList = ({ items, muted = false, onSelect, activeKey }) => (
 );
 
 const PresentacionPieChart = ({ data, muted = false }) => {
+  const { ref, width, height } = useElementSize();
   const palette = muted
     ? ["#cbd5e1", "#e2e8f0", "#94a3b8"]
     : ["#1B3D8F", "#4f8df2", "#8fb8ff"];
@@ -246,9 +277,9 @@ const PresentacionPieChart = ({ data, muted = false }) => {
 
   return (
     <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-      <div className="h-52 w-full outline-none" style={{ outline: "none" }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+      <div ref={ref} className="h-52 w-full outline-none" style={{ outline: "none" }}>
+        {width > 0 && height > 0 ? (
+          <PieChart width={width} height={height} tabIndex={-1} style={{ outline: "none" }}>
             <Pie
               data={data}
               dataKey="value"
@@ -268,7 +299,7 @@ const PresentacionPieChart = ({ data, muted = false }) => {
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
+        ) : null}
       </div>
       <ul className="m-0 list-none space-y-2 p-0 text-sm">
         {data.map((item, index) => (
