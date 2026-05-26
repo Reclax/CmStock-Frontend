@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bar,
@@ -6,7 +6,6 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -119,6 +118,62 @@ const normalizeMuestraEstado = (value) => {
   return normalizeEstado(value);
 };
 
+const SAMPLE_STATE_LABELS = {
+  nueva: "Nuevas",
+  pendiente: "Pendientes",
+  presentada: "Presentadas",
+  aprobada: "Aprobadas",
+  "no presentado": "No presentadas",
+  reutilizable: "Reutilizables",
+  rechazada: "Rechazadas",
+  "dada de baja": "Dadas de baja",
+};
+
+const SAMPLE_STATE_ORDER = [
+  "nueva",
+  "pendiente",
+  "presentada",
+  "aprobada",
+  "no presentado",
+  "reutilizable",
+  "rechazada",
+  "dada de baja",
+];
+
+const PRESENTACION_STATE_LABELS = {
+  aprobada: "Aprobadas",
+  pendiente: "Pendientes",
+  "dada de baja": "Dadas de baja",
+  reutilizable: "Reutilizables",
+};
+
+const PRESENTACION_STATE_ORDER = [
+  "aprobada",
+  "pendiente",
+  "dada de baja",
+  "reutilizable",
+];
+
+const buildStateItems = (counts, order, labels) => {
+  const items = order.map((key) => ({
+    key,
+    label: labels[key] || capitalize(key),
+    value: counts.get(key) || 0,
+  }));
+
+  for (const [key, value] of counts.entries()) {
+    if (!order.includes(key)) {
+      items.push({
+        key,
+        label: labels[key] || capitalize(key),
+        value,
+      });
+    }
+  }
+
+  return items;
+};
+
 const getPresentacionDate = (presentacion) =>
   toDate(
     presentacion?.fecha ??
@@ -128,13 +183,44 @@ const getPresentacionDate = (presentacion) =>
       presentacion?.createdat,
   );
 
+const useElementSize = () => {
+  const ref = useRef(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width);
+      const nextHeight = Math.floor(element.getBoundingClientRect().height);
+      setSize((current) => {
+        if (current.width === nextWidth && current.height === nextHeight) {
+          return current;
+        }
+        return { width: nextWidth, height: nextHeight };
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, ...size };
+};
+
 const MuestrasBarChart = ({ data, muted = false }) => {
   const fill = muted ? "#cbd5e1" : "#1B3D8F";
+  const { ref, width, height } = useElementSize();
 
   return (
-    <div className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+    <div ref={ref} className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
+      {width > 0 && height > 0 ? (
+        <BarChart width={width - 16} height={height - 16} data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
           <XAxis
             dataKey="label"
             tickLine={false}
@@ -158,19 +244,19 @@ const MuestrasBarChart = ({ data, muted = false }) => {
           />
           <Bar dataKey="value" fill={fill} radius={[10, 10, 0, 0]} />
         </BarChart>
-      </ResponsiveContainer>
+      ) : null}
     </div>
   );
 };
 
-const fetchAllMuestras = async () => {
+const fetchPaginated = async (endpoint) => {
   let page = 1;
   let totalPages = 1;
   const allItems = [];
 
   while (page <= totalPages) {
     const payload = await api.get(
-      `${ENDPOINTS.muestras}?page=${page}&limit=${MUESTRAS_PAGE_LIMIT}`,
+      `${endpoint}?page=${page}&limit=${MUESTRAS_PAGE_LIMIT}`,
     );
     const items = toCollection(payload);
     allItems.push(...items);
@@ -182,7 +268,6 @@ const fetchAllMuestras = async () => {
 
     page += 1;
   }
-
   return allItems;
 };
 
@@ -219,9 +304,10 @@ const CategoryList = ({ items, muted = false, onSelect, activeKey }) => (
 );
 
 const PresentacionPieChart = ({ data, muted = false }) => {
+  const { ref, width, height } = useElementSize();
   const palette = muted
-    ? ["#cbd5e1", "#e2e8f0", "#94a3b8"]
-    : ["#1B3D8F", "#4f8df2", "#8fb8ff"];
+    ? ["#cbd5e1", "#e2e8f0", "#94a3b8", "#64748b", "#aab4c0", "#f1f5f9"]
+    : ["#1B3D8F", "#2f63da", "#4f8df2", "#8fb8ff", "#0f4c81", "#6ca6ff"];
   const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     if (!percent || percent < 0.04) {
       return null;
@@ -247,9 +333,9 @@ const PresentacionPieChart = ({ data, muted = false }) => {
 
   return (
     <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-      <div className="h-52 w-full outline-none" style={{ outline: "none" }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+      <div ref={ref} className="h-52 w-full outline-none" style={{ outline: "none" }}>
+        {width > 0 && height > 0 ? (
+          <PieChart width={width} height={height} tabIndex={-1} style={{ outline: "none" }}>
             <Pie
               data={data}
               dataKey="value"
@@ -269,7 +355,7 @@ const PresentacionPieChart = ({ data, muted = false }) => {
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
+        ) : null}
       </div>
       <ul className="m-0 list-none space-y-2 p-0 text-sm">
         {data.map((item, index) => (
@@ -302,8 +388,8 @@ const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
   }
 
   const palette = muted
-    ? ["#d1d5db", "#cbd5e1", "#e2e8f0", "#94a3b8"]
-    : ["#1B3D8F", "#2f63da", "#4f8df2", "#8fb8ff"];
+    ? ["#d1d5db", "#cbd5e1", "#e2e8f0", "#94a3b8", "#64748b", "#aab4c0"]
+    : ["#1B3D8F", "#2f63da", "#4f8df2", "#8fb8ff", "#0f4c81", "#6ca6ff"];
 
   const segments = values
     .reduce(
@@ -335,8 +421,8 @@ const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
       <ul className="m-0 list-none space-y-2 p-0 text-sm">
         {values.map((item, index) => {
           const dotPalette = muted
-            ? ["bg-slate-400", "bg-slate-300", "bg-slate-500", "bg-slate-200"]
-            : ["bg-[#1B3D8F]", "bg-[#2f63da]", "bg-[#4f8df2]", "bg-[#8fb8ff]"];
+            ? ["bg-slate-400", "bg-slate-300", "bg-slate-500", "bg-slate-200", "bg-slate-600", "bg-slate-100"]
+            : ["bg-[#1B3D8F]", "bg-[#2f63da]", "bg-[#4f8df2]", "bg-[#8fb8ff]", "bg-[#0f4c81]", "bg-[#6ca6ff]"];
           const isActive = activeKey && item.key === activeKey;
 
           return (
@@ -378,6 +464,7 @@ export const DashboardPage = () => {
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
+      variaciones: [],
       muestrasPorCliente: [],
       presentaciones: [],
       producciones: [],
@@ -402,13 +489,15 @@ export const DashboardPage = () => {
     try {
       const [
         muestras,
+        variaciones,
         muestrasPorCliente,
         presentaciones,
         producciones,
         movimientos,
         clientes,
       ] = await Promise.all([
-        fetchAllMuestras(),
+        fetchPaginated(ENDPOINTS.muestras),
+        fetchPaginated(ENDPOINTS.variaciones),
         api.get(`${ENDPOINTS.muestras}/consultas/muestras-por-cliente`),
         api.get(ENDPOINTS.presentaciones),
         api.get(ENDPOINTS.producciones),
@@ -418,6 +507,7 @@ export const DashboardPage = () => {
 
       const newData = {
         muestras: toCollection(muestras),
+        variaciones: toCollection(variaciones),
         muestrasPorCliente: toCollection(muestrasPorCliente),
         presentaciones: toCollection(presentaciones),
         producciones: toCollection(producciones),
@@ -488,23 +578,12 @@ export const DashboardPage = () => {
   }, [data.muestras]);
 
   const stats = useMemo(() => {
-    const estadoCounts = new Map();
-    const estadoOrder = [
-      "pendiente",
-      "no presentado",
-      "aprobada",
-      "dada de baja",
-    ];
-    const estadoLabels = {
-      pendiente: "Presentadas",
-      "no presentado": "No presentadas",
-      aprobada: "Aprobadas",
-      "dada de baja": "Dadas de baja",
-    };
-
-    const muestrasWithDate = [];
-    const muestraDateById = new Map();
+    const muestrasConFecha = [];
     for (const muestra of data.muestras) {
+      if (muestra.variacion || muestra.muestraOriginalId) {
+        continue;
+      }
+
       const created = toDate(
         muestra.fechaelaboracion ??
           muestra.fechaElaboracion ??
@@ -513,13 +592,13 @@ export const DashboardPage = () => {
           muestra.fecha ??
           muestra.fechaCreacion,
       );
+
       if (created) {
-        muestrasWithDate.push({ muestra, created });
-        muestraDateById.set(muestra.id, created);
+        muestrasConFecha.push({ muestra, created });
       }
     }
 
-    const filteredMuestras = muestrasWithDate.filter((item) => {
+    const filteredMuestras = muestrasConFecha.filter((item) => {
       if (selectedYear && item.created.getFullYear() !== Number(selectedYear)) {
         return false;
       }
@@ -539,18 +618,6 @@ export const DashboardPage = () => {
     });
 
     const totalMuestras = filteredMuestras.length;
-    let presentadas = 0;
-    let noPresentadas = 0;
-    let aprobadas = 0;
-    let dadasDeBaja = 0;
-    let ordenProduccion = 0;
-    let dadasDeBajaProduccion = 0;
-    const anyDataCount =
-      totalMuestras +
-      data.presentaciones.length +
-      data.producciones.length +
-      data.movimientos.length +
-      data.clientes.length;
 
     const stockMap = {};
     for (const movimiento of data.movimientos) {
@@ -564,23 +631,23 @@ export const DashboardPage = () => {
 
     const monthlyMuestras = [...EMPTY_MONTHLY];
     const yearlyMap = new Map();
-
-    for (const item of muestrasWithDate) {
-      const yearKey = item.created.getFullYear();
-      yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
-    }
-
+    const estadoCounts = new Map();
     const produccionMuestraIds = new Set(
       data.producciones.map((produccion) => produccion.muestraid),
     );
+
+    let noPresentadas = 0;
+    let aprobadas = 0;
+    let dadasDeBaja = 0;
+    let presentadas = 0;
+    let muestrasEnProduccion = 0;
 
     for (const item of filteredMuestras) {
       const { muestra, created } = item;
       const estadoKey = normalizeMuestraEstado(muestra.estado);
       estadoCounts.set(estadoKey, (estadoCounts.get(estadoKey) || 0) + 1);
-      const hasProduccion = produccionMuestraIds.has(muestra.id);
 
-      if (estadoKey === "pendiente" || estadoKey === "presentada") {
+      if (estadoKey === "presentada") {
         presentadas += 1;
       }
 
@@ -596,28 +663,20 @@ export const DashboardPage = () => {
         dadasDeBaja += 1;
       }
 
-      if (hasProduccion && (estadoKey === "aprobada" || estadoKey === "dada de baja")) {
-        ordenProduccion += 1;
-      }
-
-      if (hasProduccion && estadoKey === "dada de baja") {
-        dadasDeBajaProduccion += 1;
+      if (produccionMuestraIds.has(muestra.id)) {
+        muestrasEnProduccion += 1;
       }
 
       monthlyMuestras[created.getMonth()] += 1;
+      const yearKey = created.getFullYear();
+      yearlyMap.set(yearKey, (yearlyMap.get(yearKey) || 0) + 1);
     }
 
-    const estadoItems = estadoOrder.map((estado) => ({
-      label: estadoLabels[estado] || capitalize(estado),
-      value: estadoCounts.get(estado) || 0,
-      key: estado,
-    }));
-
-    for (const [estado, value] of estadoCounts.entries()) {
-      if (!estadoOrder.includes(estado)) {
-        estadoItems.push({ label: capitalize(estado), value, key: estado });
-      }
-    }
+    const estadoItems = buildStateItems(
+      estadoCounts,
+      SAMPLE_STATE_ORDER,
+      SAMPLE_STATE_LABELS,
+    );
 
     const clienteNameById = new Map(
       data.clientes.map((cliente) => [cliente.id, cliente.nombre || "Cliente"]),
@@ -627,10 +686,12 @@ export const DashboardPage = () => {
       if (selectedClienteId && presentacion.clienteid !== selectedClienteId) {
         return false;
       }
+
       const created = getPresentacionDate(presentacion);
       if (selectedYear && (!created || created.getFullYear() !== Number(selectedYear))) {
         return false;
       }
+
       return true;
     });
 
@@ -655,32 +716,22 @@ export const DashboardPage = () => {
       return true;
     });
 
-    const presentacionCounts = {
-      aprobada: 0,
-      pendiente: 0,
-      "dada de baja": 0,
-    };
+    const presentacionesTotal = presentacionesFiltered.length;
+    const presentacionCounts = new Map();
 
     for (const presentacion of presentacionesFiltered) {
       const estadoKey = normalizePresentacionEstado(presentacion.resultado);
-      presentacionCounts[estadoKey] = (presentacionCounts[estadoKey] || 0) + 1;
+      presentacionCounts.set(
+        estadoKey,
+        (presentacionCounts.get(estadoKey) || 0) + 1,
+      );
     }
 
-    const presentacionItems = [
-      { key: "aprobada", label: "Aprobadas", value: presentacionCounts.aprobada },
-      { key: "pendiente", label: "Pendientes", value: presentacionCounts.pendiente },
-      { key: "dada de baja", label: "Dadas de baja", value: presentacionCounts["dada de baja"] },
-    ];
-
-    for (const [estado, value] of Object.entries(presentacionCounts)) {
-      if (value > 0 && !presentacionItems.some((item) => item.key === estado)) {
-        presentacionItems.push({
-          key: estado,
-          label: capitalize(estado),
-          value,
-        });
-      }
-    }
+    const presentacionItems = buildStateItems(
+      presentacionCounts,
+      PRESENTACION_STATE_ORDER,
+      PRESENTACION_STATE_LABELS,
+    );
 
     const clienteMap = new Map();
     for (const produccion of produccionesFiltradas) {
@@ -691,7 +742,7 @@ export const DashboardPage = () => {
 
     const topClientes = Array.from(clienteMap.entries())
       .map(([id, value]) => ({
-        label: clienteNameById.get(id) || `Cliente ${id.slice(0, 4)}`,
+        label: clienteNameById.get(id) || `Cliente ${String(id).slice(0, 4)}`,
         key: id,
         value,
       }))
@@ -712,11 +763,8 @@ export const DashboardPage = () => {
       }))
       .sort((a, b) => b.value - a.value);
 
-    const hasRealData = anyDataCount > 0;
-    const otras = Math.max(
-      totalMuestras - presentadas - noPresentadas - aprobadas - dadasDeBaja,
-      0,
-    );
+    const hasRealData =
+      totalMuestras > 0 || presentacionesTotal > 0 || produccionesFiltradas.length > 0 || data.clientes.length > 0;
 
     const yearlyMuestras = Array.from(yearlyMap.entries())
       .sort((a, b) => a[0] - b[0])
@@ -725,13 +773,12 @@ export const DashboardPage = () => {
     return {
       hasRealData,
       totalMuestras,
+      totalPresentaciones: presentacionesTotal,
       presentadas,
       noPresentadas,
       aprobadas,
       dadasDeBaja,
-      ordenProduccion,
-      dadasDeBajaProduccion,
-      otras,
+      presentacionesEnProduccion: produccionesFiltradas.length,
       enBodega,
       monthlyMuestras,
       yearlyMuestras,
@@ -757,13 +804,8 @@ export const DashboardPage = () => {
   );
 
   const donutData = useMemo(
-    () => [
-      { key: "pendiente", label: "Presentadas", value: stats.presentadas },
-      { key: "no presentado", label: "No presentadas", value: stats.noPresentadas },
-      { key: "aprobada", label: "Aprobadas", value: stats.aprobadas },
-      { key: "dada de baja", label: "Dadas de baja", value: stats.dadasDeBaja },
-    ],
-    [stats],
+    () => stats.estadoItems || [],
+    [stats.estadoItems],
   );
 
   const presentacionPieData = useMemo(
@@ -799,7 +841,7 @@ export const DashboardPage = () => {
             Dashboard estratégico
           </h1>
           <p className="text-sm text-slate-500 max-w-lg">
-            Seguimiento de muestras, presentación, ventas y estado de bodega con lectura ejecutiva.
+            Seguimiento ejecutivo de muestras originales, presentaciones, producción y bodega.
           </p>
         </div>
       </header>
@@ -846,12 +888,12 @@ export const DashboardPage = () => {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <KpiCard
               value={stats.totalMuestras}
-              title="Total Muestras"
+              title="Muestras originales"
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.presentadas}
-              title="Presentadas"
+              value={stats.totalPresentaciones}
+              title="Presentaciones totales"
               muted={!stats.hasRealData}
             />
             <KpiCard
@@ -860,8 +902,8 @@ export const DashboardPage = () => {
               muted={!stats.hasRealData}
             />
             <KpiCard
-              value={stats.ordenProduccion}
-              title="Orden de produccion"
+              value={stats.presentacionesEnProduccion}
+              title="Presentaciones que pasaron a producción"
               muted={!stats.hasRealData}
             />
             <KpiCard
@@ -882,7 +924,7 @@ export const DashboardPage = () => {
                   onClick={() => navigate("/muestras")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
@@ -928,14 +970,14 @@ export const DashboardPage = () => {
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                  Distribución operativa
+                  Distribución operativa general
                 </h3>
                 <button
                   type="button"
                   onClick={() => navigate("/muestras")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
@@ -959,7 +1001,7 @@ export const DashboardPage = () => {
                   onClick={() => navigate("/historial")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
@@ -983,11 +1025,11 @@ export const DashboardPage = () => {
                   onClick={() => navigate("/muestras")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
-              <div className="mt-4">
+              <div className="mt-4 max-h-[220px] overflow-y-auto pr-2">
                 <CategoryList
                   items={
                     stats.estadoItems.length
@@ -1011,7 +1053,7 @@ export const DashboardPage = () => {
                   onClick={() => navigate("/reportes")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}
@@ -1032,14 +1074,14 @@ export const DashboardPage = () => {
             <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
-                  Top clientes por orden de produccion
+                  Top clientes por producción
                 </h3>
                 <button
                   type="button"
                   onClick={() => navigate("/historial")}
                   className="text-xs font-semibold uppercase tracking-[0.08em] text-[#1B3D8F] transition hover:text-[#163272] hover:underline"
                 >
-                  Ver mas
+                  Ver más
                 </button>
               </div>
               {!stats.hasRealData && <BadgeNoData />}

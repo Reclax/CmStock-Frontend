@@ -43,6 +43,7 @@ self.addEventListener("fetch", (event) => {
 
   const requestUrl = new URL(event.request.url);
   const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isApiRequest = isSameOrigin && requestUrl.pathname.startsWith("/api/");
 
   if (event.request.mode === "navigate") {
     event.respondWith(
@@ -53,6 +54,14 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(() => caches.match(event.request).then((res) => res || caches.match("/"))),
+    );
+    return;
+  }
+
+  if (isApiRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(event.request)),
     );
     return;
   }

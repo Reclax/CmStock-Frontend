@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { updatePwaApp } from "../pwa/initPwa";
 
 export const PwaPrompts = () => {
   const [installEvent, setInstallEvent] = useState(null);
   const [showUpdate, setShowUpdate] = useState(false);
   const [showOfflineReady, setShowOfflineReady] = useState(false);
+  const offlineTimerRef = useRef(null);
 
   useEffect(() => {
     const onBeforeInstallPrompt = (event) => {
@@ -22,7 +23,13 @@ export const PwaPrompts = () => {
 
     const onOfflineReady = () => {
       setShowOfflineReady(true);
-      setTimeout(() => setShowOfflineReady(false), 4500);
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+      }
+      offlineTimerRef.current = setTimeout(
+        () => setShowOfflineReady(false),
+        4500,
+      );
     };
 
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
@@ -35,6 +42,9 @@ export const PwaPrompts = () => {
       window.removeEventListener("appinstalled", onAppInstalled);
       window.removeEventListener("cmstock:pwa-update-ready", onUpdateReady);
       window.removeEventListener("cmstock:pwa-offline-ready", onOfflineReady);
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+      }
     };
   }, []);
 
