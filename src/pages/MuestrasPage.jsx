@@ -209,6 +209,17 @@ export const MuestrasPage = () => {
     fetchRows(filters, page);
   }, [page]); // eslint-disable-line
 
+  useEffect(() => {
+    const handleImportStatus = (event) => {
+      if (event.detail?.phase === "success") {
+        fetchRows(filters, page);
+      }
+    };
+
+    window.addEventListener("cmstock:import-status", handleImportStatus);
+    return () => window.removeEventListener("cmstock:import-status", handleImportStatus);
+  }, [fetchRows, filters, page]);
+
   const designerOptions = useMemo(() => {
     const ids = new Set(rows.map((i) => i.disenadorid).filter(Boolean));
     return Array.from(ids);

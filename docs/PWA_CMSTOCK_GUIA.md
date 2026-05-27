@@ -19,6 +19,7 @@ Esto significa que ya tienes el nucleo PWA funcionando y solo necesitas validar 
 - npm 10+
 - Chrome (desktop y Android) para pruebas PWA
 - HTTPS en produccion (obligatorio para camara y Service Worker)
+- En iPhone/iPad Safari, la app debe abrirse desde un origen seguro (HTTPS). El servidor de desarrollo de Vite en HTTP no es suficiente para instalar o registrar el Service Worker.
 
 ## 3. Instalar dependencias del proyecto
 ```bash
@@ -136,6 +137,8 @@ server {
 2. Compartir.
 3. Agregar a pantalla de inicio.
 4. Confirmar.
+
+Nota: si estas probando desde `docker compose up` o `npm run dev`, Safari en iPhone no va a instalar la PWA porque el entorno expone HTTP. Usa HTTPS real o un proxy con certificado valido.
 
 ## 10. Funcionamiento offline (estado actual)
 Con el Service Worker actual:

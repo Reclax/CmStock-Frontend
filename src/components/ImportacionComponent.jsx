@@ -25,6 +25,14 @@ const writeImportStatus = (value) => {
   }
 };
 
+const emitImportStatus = (status) => {
+  try {
+    window.dispatchEvent(new CustomEvent("cmstock:import-status", { detail: status }));
+  } catch {
+    // Ignorar si el entorno no soporta CustomEvent.
+  }
+};
+
 export const ImportacionComponent = ({ onImportComplete }) => {
   const [files, setFiles] = useState({
     baseDis: null,
@@ -40,12 +48,96 @@ export const ImportacionComponent = ({ onImportComplete }) => {
     aprobaciones: false
   });
   const isMountedRef = useRef(true);
+  const pollRef = useRef(null);
+  const startedAtRef = useRef(null);
+  const onImportCompleteRef = useRef(onImportComplete);
+
+  useEffect(() => {
+    onImportCompleteRef.current = onImportComplete;
+  }, [onImportComplete]);
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!status || status.phase !== "running") {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
+    const pollImportStatus = async () => {
+      try {
+        const response = await api.get('/importacion/status');
+        const currentStatus = response?.data || response;
+
+        if (!currentStatus || currentStatus.phase === 'idle') {
+          return;
+        }
+
+        if (
+          startedAtRef.current &&
+          currentStatus.startedAt &&
+          currentStatus.startedAt !== startedAtRef.current
+        ) {
+          return;
+        }
+
+        if (currentStatus.phase === 'success') {
+          writeImportStatus(currentStatus);
+          emitImportStatus(currentStatus);
+          if (isMountedRef.current) {
+            setStatus(currentStatus);
+            setLoading(false);
+            setProgress(null);
+            setError(null);
+          }
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          if (onImportCompleteRef.current) {
+            onImportCompleteRef.current(currentStatus.results);
+          }
+        }
+
+        if (currentStatus.phase === 'error') {
+          writeImportStatus(currentStatus);
+          emitImportStatus(currentStatus);
+          if (isMountedRef.current) {
+            setStatus(currentStatus);
+            setLoading(false);
+            setProgress(null);
+            setError(currentStatus.message || 'Error en la importación');
+          }
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }
+      } catch {
+        // Si el poll falla, mantenemos el estado actual y reintentamos.
+      }
+    };
+
+    pollImportStatus();
+    pollRef.current = setInterval(pollImportStatus, 2000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [status]);
 
   const handleDrag = (e, fileType) => {
     e.preventDefault();
@@ -93,7 +185,10 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       startedAt: Date.now(),
     };
 
+    startedAtRef.current = runningStatus.startedAt;
+
     writeImportStatus(runningStatus);
+    emitImportStatus(runningStatus);
     if (isMountedRef.current) {
       setStatus(runningStatus);
     }
@@ -121,6 +216,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
         };
 
         writeImportStatus(successStatus);
+        emitImportStatus(successStatus);
 
         if (isMountedRef.current) {
           setStatus(successStatus);
@@ -140,6 +236,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
         };
 
         writeImportStatus(errorStatus);
+        emitImportStatus(errorStatus);
 
         if (isMountedRef.current) {
           setError(message);
@@ -156,6 +253,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
       };
 
       writeImportStatus(errorStatus);
+      emitImportStatus(errorStatus);
 
       if (isMountedRef.current) {
         setError(message);
@@ -351,7 +449,7 @@ export const ImportacionComponent = ({ onImportComplete }) => {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <FiCheckCircle className="text-green-600 mt-0.5" />
-                  <h3 className="font-semibold text-green-900">BASE DIS 2025</h3>
+                  <h3 className="font-semibold text-green-900">BASE VINCULO DIS</h3>
                 </div>
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
