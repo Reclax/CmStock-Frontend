@@ -22,23 +22,49 @@ const extractRef = (filename) => {
 };
 
 const isImage = (file) => file.type.startsWith("image/");
+const MAX_IMAGES_PER_BATCH = 20;
+const MAX_UPLOAD_ATTEMPTS = 2;
+const chunkArray = (items, size) => {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+};
 
 // ── Sub-componente: Carga masiva de imágenes ─────────────────────────────────
 const GestionImagenesBulk = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({
+    processed: 0,
+    total: 0,
+    currentBatch: 0,
+    totalBatches: 0,
+  });
   const [results, setResults] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState(null);
+  const [finalNotice, setFinalNotice] = useState(null);
   const inputRef = useRef(null);
 
   const addFiles = (newFiles) => {
-    const images = Array.from(newFiles).filter(isImage);
+    const incoming = Array.from(newFiles);
+    const images = incoming.filter(isImage);
     if (!images.length) return;
     setResults(null);
+    setError(null);
+    setFinalNotice(null);
     setSelectedFiles((prev) => {
       const existing = new Set(prev.map((f) => f.name + f.size));
       const unique = images.filter((f) => !existing.has(f.name + f.size));
-      return [...prev, ...unique];
+      const nextFiles = [...prev, ...unique];
+
+      if (images.length < incoming.length) {
+        setError("Solo se aceptan archivos de imagen.");
+      }
+
+      return nextFiles;
     });
   };
 
@@ -55,32 +81,124 @@ const GestionImagenesBulk = () => {
     if (!selectedFiles.length) return;
     setUploading(true);
     setResults(null);
+    setError(null);
+    setFinalNotice(null);
+    const batches = chunkArray(selectedFiles, MAX_IMAGES_PER_BATCH);
+    setUploadProgress({
+      processed: 0,
+      total: selectedFiles.length,
+      currentBatch: 1,
+      totalBatches: batches.length,
+    });
+
+    const aggregated = {
+      vinculadas: 0,
+      omitidas: 0,
+      resultados: [],
+    };
+    let failedAfterRetries = 0;
+
+    const uploadSingleWithRetry = async (file) => {
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt += 1) {
+        try {
+          const formData = new FormData();
+          formData.append("files", file);
+          const data = await api.postForm(`${ENDPOINTS.fotos}/upload-bulk`, formData);
+          return { ok: true, data, attempts: attempt };
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      return { ok: false, error: lastError, attempts: MAX_UPLOAD_ATTEMPTS };
+    };
 
     try {
-      const formData = new FormData();
-      selectedFiles.forEach((f) => formData.append("files", f));
-      const data = await api.postForm(`${ENDPOINTS.fotos}/upload-bulk`, formData);
-      setResults(data);
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+        const batchFiles = batches[batchIndex];
+
+        setUploadProgress((prev) => ({
+          ...prev,
+          currentBatch: batchIndex + 1,
+        }));
+
+        for (const file of batchFiles) {
+          const uploadResult = await uploadSingleWithRetry(file);
+
+          if (uploadResult.ok) {
+            const { data, attempts } = uploadResult;
+
+            aggregated.vinculadas += Number(data?.vinculadas || 0);
+            aggregated.omitidas += Number(data?.omitidas || 0);
+
+            if (Array.isArray(data?.resultados)) {
+              aggregated.resultados.push(
+                ...data.resultados.map((resultItem) => ({
+                  ...resultItem,
+                  intentos: attempts,
+                }))
+              );
+            } else {
+              aggregated.resultados.push({
+                ok: true,
+                archivo: file.name,
+                referencia: extractRef(file.name),
+                motivo: null,
+                intentos: attempts,
+              });
+            }
+          } else {
+            aggregated.omitidas += 1;
+            failedAfterRetries += 1;
+            aggregated.resultados.push({
+              ok: false,
+              archivo: file.name,
+              referencia: extractRef(file.name),
+              motivo: `Error de conexión tras ${MAX_UPLOAD_ATTEMPTS} intentos`,
+              intentos: uploadResult.attempts,
+            });
+          }
+
+          setUploadProgress((prev) => ({ ...prev, processed: prev.processed + 1 }));
+          setResults({ ...aggregated, resultados: [...aggregated.resultados] });
+        }
+      }
+
+      if (aggregated.resultados.length === 0) {
+        setResults({
+          vinculadas: 0,
+          omitidas: selectedFiles.length,
+          resultados: selectedFiles.map((file) => ({
+            ok: false,
+            archivo: file.name,
+            referencia: extractRef(file.name),
+            motivo: "No se pudo procesar el archivo",
+          })),
+        });
+      }
+
+      if (failedAfterRetries > 0) {
+        setFinalNotice(
+          `Se omitieron ${failedAfterRetries} imagen${failedAfterRetries !== 1 ? "es" : ""} tras ${MAX_UPLOAD_ATTEMPTS} intentos.`
+        );
+      } else {
+        setFinalNotice("Importación finalizada sin errores de conexión.");
+      }
+
       setSelectedFiles([]);
-    } catch (err) {
-      setResults({
-        vinculadas: 0,
-        omitidas: selectedFiles.length,
-        resultados: selectedFiles.map((f) => ({
-          ok: false,
-          archivo: f.name,
-          referencia: extractRef(f.name),
-          motivo: err?.message || "Error de conexión",
-        })),
-      });
     } finally {
       setUploading(false);
+      setUploadProgress((prev) => ({ ...prev, processed: prev.total }));
     }
   };
 
   const clearAll = () => {
     setSelectedFiles([]);
     setResults(null);
+    setError(null);
+    setFinalNotice(null);
   };
 
   return (
@@ -189,7 +307,7 @@ const GestionImagenesBulk = () => {
               {uploading ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Subiendo...
+                  Subiendo {uploadProgress.processed}/{uploadProgress.total} · lote {uploadProgress.currentBatch}/{uploadProgress.totalBatches}
                 </>
               ) : (
                 <>
@@ -206,6 +324,14 @@ const GestionImagenesBulk = () => {
       {results && (
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {/* Resumen */}
+          {finalNotice && (
+            <div className={`px-5 py-3 text-sm font-medium ${results.omitidas > 0
+              ? "border-b border-amber-100 bg-amber-50 text-amber-800"
+              : "border-b border-emerald-100 bg-emerald-50 text-emerald-700"
+            }`}>
+              {finalNotice}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3.5">
             <p className="text-sm font-bold text-slate-700">Resultado de la carga</p>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -215,7 +341,7 @@ const GestionImagenesBulk = () => {
             {results.omitidas > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
                 <FiAlertTriangle className="h-3.5 w-3.5" />
-                {results.omitidas} omitida{results.omitidas !== 1 ? "s" : ""} — referencia no encontrada
+                {results.omitidas} omitida{results.omitidas !== 1 ? "s" : ""}
               </span>
             )}
           </div>
@@ -242,6 +368,11 @@ const GestionImagenesBulk = () => {
                   )}
                   {!r.ok && r.motivo && (
                     <p className="mt-0.5 text-xs font-medium text-rose-600">{r.motivo}</p>
+                  )}
+                  {r.intentos > 1 && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Intentos: {r.intentos}
+                    </p>
                   )}
                 </div>
                 <span

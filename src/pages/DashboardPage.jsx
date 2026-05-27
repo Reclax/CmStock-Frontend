@@ -531,6 +531,17 @@ export const DashboardPage = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const handleImportStatus = (event) => {
+      if (event.detail?.phase === "success") {
+        load(true);
+      }
+    };
+
+    window.addEventListener("cmstock:import-status", handleImportStatus);
+    return () => window.removeEventListener("cmstock:import-status", handleImportStatus);
+  }, []);
+
   const years = useMemo(() => {
     const yearSet = new Set();
     for (const muestra of data.muestras) {
