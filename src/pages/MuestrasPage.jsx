@@ -26,16 +26,6 @@ import { emptyForm, esMuestraVariacion, toCollection, safe, formatearReferenciaV
 
 const PAGE_SIZE = 20;
 const MUESTRAS_VIEW_STATE_KEY = "cmstock_muestras_view_state";
-const IMPORT_STATUS_KEY = "cmstock_import_status";
-
-const readImportStatus = () => {
-  try {
-    const raw = sessionStorage.getItem(IMPORT_STATUS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
 
 const initialFilters = {
   q: "",
@@ -86,7 +76,6 @@ export const MuestrasPage = () => {
   const [loadingRows, setLoadingRows] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const savedViewState = useMemo(() => readViewState(), []);
-  const [importStatus, setImportStatus] = useState(() => readImportStatus());
   const [filters, setFilters] = useState(() => ({
     ...initialFilters,
     ...(savedViewState?.filters || {}),
@@ -219,25 +208,6 @@ export const MuestrasPage = () => {
   useEffect(() => {
     fetchRows(filters, page);
   }, [page]); // eslint-disable-line
-
-  useEffect(() => {
-    const handleImportStatus = (event) => {
-      const nextStatus = event.detail || null;
-      setImportStatus(nextStatus);
-      if (nextStatus?.phase === "success") {
-        fetchRows(filters, page);
-      }
-    };
-
-    window.addEventListener("cmstock:import-status", handleImportStatus);
-    return () => window.removeEventListener("cmstock:import-status", handleImportStatus);
-  }, [fetchRows, filters, page]);
-
-  useEffect(() => {
-    const syncImportStatus = () => setImportStatus(readImportStatus());
-    window.addEventListener("focus", syncImportStatus);
-    return () => window.removeEventListener("focus", syncImportStatus);
-  }, []);
 
   const designerOptions = useMemo(() => {
     const ids = new Set(rows.map((i) => i.disenadorid).filter(Boolean));
@@ -754,11 +724,6 @@ export const MuestrasPage = () => {
 
   return (
     <section className="space-y-5">
-      {importStatus?.phase === "running" && (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
-          Importación en curso. La tabla se actualizará al terminar.
-        </div>
-      )}
       {/* ── HERO ── */}
       <header className="px-1 py-4 border-b border-slate-200">
         <div className="flex flex-col items-center text-center gap-2">
