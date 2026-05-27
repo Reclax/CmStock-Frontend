@@ -32,6 +32,16 @@ const MONTH_NAMES = [
 
 const EMPTY_MONTHLY = Array.from({ length: 12 }, () => 0);
 const MUESTRAS_PAGE_LIMIT = 500;
+const IMPORT_STATUS_KEY = "cmstock_import_status";
+
+const readImportStatus = () => {
+  try {
+    const raw = sessionStorage.getItem(IMPORT_STATUS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 const toDate = (value) => {
   if (!value) {
@@ -461,6 +471,7 @@ export const DashboardPage = () => {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMuestraEstado, setSelectedMuestraEstado] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
+  const [importStatus, setImportStatus] = useState(() => readImportStatus());
   const [data, setData] = useState(
     globalDashboardCache || {
       muestras: [],
@@ -533,13 +544,21 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     const handleImportStatus = (event) => {
-      if (event.detail?.phase === "success") {
+      const nextStatus = event.detail || null;
+      setImportStatus(nextStatus);
+      if (nextStatus?.phase === "success") {
         load(true);
       }
     };
 
     window.addEventListener("cmstock:import-status", handleImportStatus);
     return () => window.removeEventListener("cmstock:import-status", handleImportStatus);
+  }, []);
+
+  useEffect(() => {
+    const syncImportStatus = () => setImportStatus(readImportStatus());
+    window.addEventListener("focus", syncImportStatus);
+    return () => window.removeEventListener("focus", syncImportStatus);
   }, []);
 
   const years = useMemo(() => {

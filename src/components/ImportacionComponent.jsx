@@ -80,10 +80,22 @@ export const ImportacionComponent = ({ onImportComplete }) => {
         const currentStatus = response?.data || response;
 
         if (!currentStatus || currentStatus.phase === 'idle') {
+          if (isMountedRef.current) {
+            writeImportStatus(null);
+            setStatus(null);
+            setLoading(false);
+            setProgress(null);
+            setError(null);
+          }
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
           return;
         }
 
         if (
+          currentStatus.phase === 'running' &&
           startedAtRef.current &&
           currentStatus.startedAt &&
           currentStatus.startedAt !== startedAtRef.current
