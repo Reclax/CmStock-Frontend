@@ -1,122 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { FiCamera, FiLogOut } from "react-icons/fi";
-import { api } from "../api/client";
 import { useAuth } from "../auth/useAuth";
 import { Modal } from "./Modal";
-
-const IMPORT_STATUS_KEY = "cmstock_import_status";
-
-const readImportStatus = () => {
-  try {
-    const raw = sessionStorage.getItem(IMPORT_STATUS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const writeImportStatus = (value) => {
-  try {
-    if (value) {
-      sessionStorage.setItem(IMPORT_STATUS_KEY, JSON.stringify(value));
-    } else {
-      sessionStorage.removeItem(IMPORT_STATUS_KEY);
-    }
-  } catch {
-    // No bloquear la navegación por fallos de storage.
-  }
-};
-
-const emitImportStatus = (status) => {
-  try {
-    window.dispatchEvent(new CustomEvent("cmstock:import-status", { detail: status }));
-  } catch {
-    // Ignorar si el navegador no soporta CustomEvent.
-  }
-};
-
-const ImportStatusWatcher = () => {
-  const pollRef = useRef(null);
-  const startedAtRef = useRef(null);
-
-  useEffect(() => {
-    const stopPolling = () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-
-    const syncFromStorage = () => {
-      const current = readImportStatus();
-      if (current?.phase === "running") {
-        startedAtRef.current = current.startedAt || startedAtRef.current;
-      }
-
-      if (!current || current.phase !== "running") {
-        stopPolling();
-        return;
-      }
-
-      const pollImportStatus = async () => {
-        try {
-          const response = await api.get("/importacion/status");
-          const backendStatus = response?.data || response;
-
-          if (!backendStatus || backendStatus.phase === "idle") {
-            writeImportStatus(null);
-            emitImportStatus(null);
-            stopPolling();
-            return;
-          }
-
-          if (
-            backendStatus.phase === "running" &&
-            startedAtRef.current &&
-            backendStatus.startedAt &&
-            backendStatus.startedAt !== startedAtRef.current
-          ) {
-            return;
-          }
-
-          if (backendStatus.phase === "success" || backendStatus.phase === "error") {
-            writeImportStatus(backendStatus);
-            emitImportStatus(backendStatus);
-            stopPolling();
-          }
-        } catch {
-          // Si falla el poll, mantenemos el estado y reintentamos.
-        }
-      };
-
-      pollImportStatus();
-      stopPolling();
-      pollRef.current = setInterval(pollImportStatus, 2000);
-    };
-
-    syncFromStorage();
-
-    const handleImportStatus = (event) => {
-      const nextStatus = event.detail || null;
-      if (nextStatus?.phase === "running") {
-        startedAtRef.current = nextStatus.startedAt || startedAtRef.current;
-        syncFromStorage();
-      }
-      if (nextStatus?.phase === "success" || nextStatus?.phase === "error") {
-        stopPolling();
-      }
-    };
-
-    window.addEventListener("cmstock:import-status", handleImportStatus);
-    return () => {
-      window.removeEventListener("cmstock:import-status", handleImportStatus);
-      stopPolling();
-    };
-  }, []);
-
-  return null;
-};
 
 const navItems = [
   { to: "/", label: "Dashboard" },
@@ -132,7 +18,6 @@ export const AppLayout = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const [importStatus, setImportStatus] = useState(() => readImportStatus());
 
   const handleLogout = () => {
     logout();
@@ -149,22 +34,6 @@ export const AppLayout = () => {
     navigate("/etiquetas-qr");
   };
 
-  useEffect(() => {
-    const syncImportStatus = () => setImportStatus(readImportStatus());
-
-    const handleImportStatus = (event) => {
-      setImportStatus(event.detail || null);
-    };
-
-    window.addEventListener("focus", syncImportStatus);
-    window.addEventListener("cmstock:import-status", handleImportStatus);
-
-    return () => {
-      window.removeEventListener("focus", syncImportStatus);
-      window.removeEventListener("cmstock:import-status", handleImportStatus);
-    };
-  }, []);
-
   const initials = (user?.nombre || "U")
     .split(" ")
     .map((w) => w[0])
@@ -174,26 +43,8 @@ export const AppLayout = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[linear-gradient(180deg,#f8fbff_0%,#edf3fb_100%)]">
-      <ImportStatusWatcher />
-      {importStatus?.phase === "running" && (
-        <div className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-900">
-          Importación en curso. Puedes navegar y volver sin recargar la página.
-        </div>
-      )}
-      {importStatus?.phase === "success" && (
-        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900">
-          Importación completada correctamente.
-        </div>
-      )}
-      {importStatus?.phase === "error" && (
-        <div className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900">
-          Error en la importación: {importStatus.message}
-        </div>
-      )}
       <header className="bg-[#0f2554] border-b border-white/[0.07]">
-        {/* Top bar */}
         <div className="flex items-center h-[85px] px-5 lg:px-7 gap-0">
-          {/* Brand */}
           <div className="flex items-center gap-3 pr-7 border-r border-white/10 flex-shrink-0">
             <img
               src="/image.png"
@@ -210,7 +61,6 @@ export const AppLayout = () => {
             </div>
           </div>
 
-          {/* Nav desktop */}
           <nav
             className="hidden lg:flex items-center flex-1 px-5 gap-0.5 overflow-x-auto"
             style={{ scrollbarWidth: "none" }}
@@ -231,7 +81,6 @@ export const AppLayout = () => {
             ))}
           </nav>
 
-          {/* Usuario + QR + logout desktop */}
           <div className="hidden lg:flex items-center gap-3 pl-5 border-l border-white/10 flex-shrink-0 ml-auto">
             <div className="flex items-center gap-2.5 px-[11px] py-[7px] rounded-[9px] hover:bg-white/[0.07] cursor-pointer transition">
               <div className="w-[34px] h-[34px] rounded-full bg-[#1b3d8f] border-[1.5px] border-white/20 flex items-center justify-center text-[12px] font-semibold text-white flex-shrink-0">
@@ -266,7 +115,6 @@ export const AppLayout = () => {
             </button>
           </div>
 
-          {/* Hamburger mobile */}
           <button
             type="button"
             className="lg:hidden ml-auto w-[38px] h-[38px] flex flex-col items-center justify-center gap-[5px] rounded-[9px] border border-white/15 p-2.5"
@@ -291,7 +139,6 @@ export const AppLayout = () => {
           </button>
         </div>
 
-        {/* Menú mobile */}
         {menuOpen && (
           <div className="lg:hidden bg-[#0f2554] border-t border-white/[0.08] px-4 pb-4">
             <div className="flex items-center gap-3 py-3 px-3">
