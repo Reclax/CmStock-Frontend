@@ -7,4 +7,4 @@ services:
     container_name: cmstock-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-5173}:5173"
+      - "${FRONTEND_PORT:-4173}:80"
