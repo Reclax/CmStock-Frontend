@@ -86,7 +86,7 @@ export const AdministracionPage = () => {
 
   useEffect(() => {
     current.load();
-  }, [current]);
+  }, [current.load]);
 
   const switchTab = (nextTab) => {
     setTab(nextTab);

@@ -78,7 +78,13 @@ self.addEventListener("fetch", (event) => {
           const cachedRoot = await caches.match("/");
           if (cachedRoot) return cachedRoot;
 
-          return caches.match(OFFLINE_URL);
+          const cachedOffline = await caches.match(OFFLINE_URL);
+          if (cachedOffline) return cachedOffline;
+
+          return new Response("Offline", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
         }),
     );
     return;
@@ -137,7 +143,16 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cachedResponse);
 
-      return cachedResponse || fetchAndCache;
+      if (cachedResponse) return cachedResponse;
+
+      return fetchAndCache.then(
+        (response) =>
+          response ||
+          new Response("Offline", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          }),
+      );
     }),
   );
 });
