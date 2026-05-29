@@ -15,6 +15,7 @@ import Select from "react-select";
 import { ENDPOINTS } from "../api/endpoints";
 import { DataGrid } from "../components/DataGrid";
 import { Modal } from "../components/Modal";
+import { ResponsivePagination } from "../components/ResponsivePagination";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useCrud } from "../hooks/useCrud";
 import { toDateInput, toNumber } from "../utils/format";
@@ -112,9 +113,6 @@ const useSearchAndPagination = (data) => {
   };
 };
 
-// =========================
-// PAGE
-// =========================
 export const InventarioPage = () => {
   const catalogs = useCatalogData();
   const movimientos = useCrud(ENDPOINTS.movimientosInventario);
@@ -282,88 +280,21 @@ export const InventarioPage = () => {
           />
         </div>
 
-        <div className="border-t border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500">Page</span>
-
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={safePage <= 1}
-              onClick={() => state.setPage(1)}
-              title="Primera"
-            >
-              <FiChevronsLeft />
-            </button>
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={safePage <= 1}
-              onClick={() => state.setPage((p) => Math.max(1, p - 1))}
-              title="Anterior"
-            >
-              <FiChevronLeft />
-            </button>
-
-            <div className="flex items-center gap-1">
-              {buttons.map((item) => {
-                if (typeof item === "string") {
-                  return (
-                    <span
-                      key={item}
-                      className="px-2 text-slate-400"
-                      aria-hidden="true"
-                    >
-                      …
-                    </span>
-                  );
-                }
-
-                const isActive = item === safePage;
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => state.setPage(item)}
-                    className={
-                      isActive
-                        ? "rounded-xl bg-[#1B3D8F] px-3 py-2 text-sm font-bold text-white"
-                        : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                    }
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    {item}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={safePage >= safeTotal}
-              onClick={() =>
-                state.setPage((p) => Math.min(safeTotal || 1, p + 1))
-              }
-              title="Siguiente"
-            >
-              <FiChevronRight />
-            </button>
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={safePage >= safeTotal}
-              onClick={() => state.setPage(safeTotal)}
-              title="Ultima"
-            >
-              <FiChevronsRight />
-            </button>
-          </div>
-
-          <span className="text-slate-500">
-            Results {startIndex} to {endIndex} of {total}
-          </span>
-        </div>
+        <ResponsivePagination
+          pageLabel="Page"
+          resultsLabel="Results"
+          page={safePage}
+          totalPages={safeTotal}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          totalItems={total}
+          buttons={buttons}
+          onFirst={() => state.setPage(1)}
+          onPrev={() => state.setPage((p) => Math.max(1, p - 1))}
+          onNext={() => state.setPage((p) => Math.min(safeTotal || 1, p + 1))}
+          onLast={() => state.setPage(safeTotal)}
+          onPage={(value) => state.setPage(value)}
+        />
       </article>
     );
   };

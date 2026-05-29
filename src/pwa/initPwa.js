@@ -15,6 +15,11 @@ const isLocalhost =
 export const initPwa = () => {
   if (!("serviceWorker" in navigator)) return;
 
+  if (!window.isSecureContext && !isLocalhost) {
+    console.warn("PWA disabled: service worker requires HTTPS outside localhost.");
+    return;
+  }
+
   window.addEventListener("load", async () => {
     if (import.meta.env.DEV && isLocalhost) {
       // Keep dev clean from stale SW/cache when iterating quickly.
@@ -32,7 +37,7 @@ export const initPwa = () => {
     }
 
     try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
+      const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
 
       const markUpdateAvailable = (worker) => {
         if (!worker || hasShownUpdate) return;

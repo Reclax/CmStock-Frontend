@@ -1,13 +1,19 @@
 {
+  "id": "/",
   "name": "CM Stock",
   "short_name": "CMStock",
   "description": "Gestion de muestras, trazabilidad e inventario",
+  "lang": "es-AR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#FFFFFF",
   "theme_color": "#1B4965",
   "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-72.png",

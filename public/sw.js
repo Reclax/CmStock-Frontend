@@ -1,8 +1,11 @@
-const CACHE_NAME = "cmstock-v5";
+const CACHE_NAME = "cmstock-v8";
+const OFFLINE_URL = "/offline.html";
+const ALLOWED_EXTERNAL_ORIGINS = ["https://api.qrserver.com"];
 
 const APP_SHELL = [
   "/",
   "/index.html",
+  OFFLINE_URL,
   "/manifest.webmanifest",
   "/image.png",
   "/icons/icon-72.png",
@@ -18,7 +21,18 @@ const APP_SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.allSettled(APP_SHELL.map((asset) => cache.add(asset)));
+
+    // Discover Vite hashed assets from index and precache them for first offline use.
+    const discoveredAssets = await discoverBuildAssets();
+    if (discoveredAssets.length > 0) {
+      await Promise.allSettled(discoveredAssets.map((asset) => cache.add(asset)));
+    }
+
+    self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
@@ -49,11 +63,23 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", clone));
+          const clone1 = networkResponse.clone();
+          const clone2 = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clone1);
+            cache.put("/", clone2);
+          });
           return networkResponse;
         })
-        .catch(() => caches.match(event.request).then((res) => res || caches.match("/"))),
+        .catch(async () => {
+          const cachedRoute = await caches.match(event.request);
+          if (cachedRoute) return cachedRoute;
+
+          const cachedRoot = await caches.match("/");
+          if (cachedRoot) return cachedRoot;
+
+          return caches.match(OFFLINE_URL);
+        }),
     );
     return;
   }
@@ -61,12 +87,39 @@ self.addEventListener("fetch", (event) => {
   if (isApiRequest) {
     event.respondWith(
       fetch(event.request)
-        .catch(() => caches.match(event.request)),
+        .then((networkResponse) => {
+          if (networkResponse.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedApi = await caches.match(event.request);
+          if (cachedApi) return cachedApi;
+
+          return new Response(
+            JSON.stringify({
+              message: "Sin conexion a internet",
+              offline: true,
+            }),
+            {
+              status: 503,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }),
     );
     return;
   }
 
-  if (!isSameOrigin && !requestUrl.href.startsWith("https://api.qrserver.com/")) {
+  if (!isSameOrigin && !ALLOWED_EXTERNAL_ORIGINS.some((origin) => requestUrl.href.startsWith(origin))) {
+    return;
+  }
+
+  const isStaticAsset = isSameOrigin && /^\/assets\//.test(requestUrl.pathname);
+
+  if (isStaticAsset) {
+    event.respondWith(staleWhileRevalidate(event.request));
     return;
   }
 
@@ -74,6 +127,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cachedResponse) => {
       const fetchAndCache = fetch(event.request)
         .then((networkResponse) => {
+          if (!networkResponse || !networkResponse.ok) {
+            return networkResponse;
+          }
+
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return networkResponse;
@@ -84,3 +141,42 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+const discoverBuildAssets = async () => {
+  try {
+    const response = await fetch("/index.html", { cache: "no-store" });
+    if (!response.ok) return [];
+
+    const html = await response.text();
+    const assets = new Set();
+    const assetRegex = /(?:href|src)=\"(\/assets\/[^\"]+)\"/g;
+    let match = assetRegex.exec(html);
+
+    while (match) {
+      if (match[1]) {
+        assets.add(match[1]);
+      }
+      match = assetRegex.exec(html);
+    }
+
+    return Array.from(assets);
+  } catch {
+    return [];
+  }
+};
+
+const staleWhileRevalidate = async (request) => {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  const networkPromise = fetch(request)
+    .then((response) => {
+      if (response?.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => cached);
+
+  return cached || networkPromise;
+};

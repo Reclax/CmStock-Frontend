@@ -171,6 +171,12 @@
     @apply lg:grid-cols-3;
   }
 
+    /* Make SVGs responsive to avoid causing horizontal overflow */
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
   .panel-card {
     @apply rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)];
   }

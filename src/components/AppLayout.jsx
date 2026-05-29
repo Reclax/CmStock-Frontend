@@ -42,7 +42,7 @@ export const AppLayout = () => {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[linear-gradient(180deg,#f8fbff_0%,#edf3fb_100%)]">
+    <div className="min-h-screen flex flex-col bg-[linear-gradient(180deg,#f8fbff_0%,#edf3fb_100%)] overflow-x-hidden">
       <header className="bg-[#0f2554] border-b border-white/[0.07]">
         <div className="flex items-center h-[85px] px-5 lg:px-7 gap-0">
           <div className="flex items-center gap-3 pr-7 border-r border-white/10 flex-shrink-0">
