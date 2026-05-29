@@ -29,11 +29,6 @@ export const AppLayout = () => {
     setLogoutConfirmOpen(true);
   };
 
-  const openQrScanner = () => {
-    setMenuOpen(false);
-    navigate("/etiquetas-qr");
-  };
-
   const initials = (user?.nombre || "U")
     .split(" ")
     .map((w) => w[0])
@@ -95,15 +90,6 @@ export const AppLayout = () => {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={openQrScanner}
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-[9px] border border-white/15 text-white/70 transition hover:bg-white/[0.08] hover:text-white"
-              aria-label="Escanear QR"
-              title="Escanear QR"
-            >
-              <FiCamera className="h-5 w-5" />
-            </button>
             <button
               type="button"
               onClick={openLogoutConfirm}
@@ -172,14 +158,6 @@ export const AppLayout = () => {
             ))}
             <div className="h-px bg-white/[0.07] my-2" />
             <div className="flex flex-wrap gap-2 px-3">
-              <button
-                type="button"
-                onClick={openQrScanner}
-                className="inline-flex items-center gap-2 rounded-[9px] border border-white/15 px-3 py-2 text-[13px] font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white"
-              >
-                <FiCamera className="h-4 w-4" />
-                Escanear QR
-              </button>
               <button
                 type="button"
                 onClick={openLogoutConfirm}
