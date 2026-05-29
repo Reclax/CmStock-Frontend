@@ -199,11 +199,14 @@ export const MuestrasPage = () => {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setPage(1);
-      fetchRows(filters, 1);
+      if (page === 1) {
+        fetchRows(filters, 1);
+      } else {
+        setPage(1);
+      }
     }, 400);
     return () => clearTimeout(debounceRef.current);
-  }, [filters, fetchRows]);
+  }, [filters, page, fetchRows]);
 
   useEffect(() => {
     fetchRows(filters, page);

@@ -35,16 +35,12 @@ const loadAllPages = async (endpoint) => {
     return firstPageItems;
   }
 
-  const remainingPages = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, index) =>
-      api.get(buildPagePath(endpoint, index + 2)),
-    ),
-  );
+  const allItems = [...firstPageItems];
 
-  const allItems = [
-    ...firstPageItems,
-    ...remainingPages.flatMap((pagePayload) => toCollection(pagePayload)),
-  ];
+  for (let page = 2; page <= totalPages; page += 1) {
+    const pagePayload = await api.get(buildPagePath(endpoint, page));
+    allItems.push(...toCollection(pagePayload));
+  }
 
   // Deduplicar por id para proteger contra inestabilidades de paginación
   const uniqueItems = [];
