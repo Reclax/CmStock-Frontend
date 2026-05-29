@@ -8,6 +8,17 @@ const isSafariBrowser = () => {
   return /safari/i.test(userAgent) && !/chrome|crios|fxios|edg/i.test(userAgent);
 };
 
+const isIOSDevice = () => {
+  if (typeof navigator === "undefined") return false;
+
+  const userAgent = navigator.userAgent;
+  const platform = navigator.platform || "";
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+
+  return /iphone|ipad|ipod/i.test(userAgent)
+    || (platform === "MacIntel" && maxTouchPoints > 1);
+};
+
 const isStandaloneMode = () => {
   if (typeof window === "undefined") return false;
 
@@ -21,6 +32,7 @@ export const PwaPrompts = () => {
   const [installEvent, setInstallEvent] = useState(null);
   const [showUpdate, setShowUpdate] = useState(false);
   const [showOfflineReady, setShowOfflineReady] = useState(false);
+  const [hideIosHint, setHideIosHint] = useState(false);
   const offlineTimerRef = useRef(null);
 
   useEffect(() => {
@@ -64,7 +76,10 @@ export const PwaPrompts = () => {
     };
   }, []);
 
-  const showSafariInstallHint = !installEvent && isSafariBrowser() && !isStandaloneMode();
+  const isStandalone = isStandaloneMode();
+  const isIOS = isIOSDevice();
+  const isSecure = typeof window !== "undefined" ? window.isSecureContext : true;
+  const showIosInstallHint = !installEvent && isIOS && !isStandalone && !hideIosHint;
 
   const handleInstall = async () => {
     if (!installEvent) return;
@@ -103,18 +118,22 @@ export const PwaPrompts = () => {
             </button>
           </div>
         </div>
-      ) : showSafariInstallHint ? (
+      ) : showIosInstallHint ? (
         <div className="fixed bottom-4 left-4 right-4 z-[100] mx-auto max-w-md rounded-2xl border border-[#1b3d8f]/15 bg-white p-4 shadow-[0_18px_38px_rgba(17,36,74,0.18)]">
           <p className="m-0 text-sm font-semibold text-slate-800">
-            En Safari, instala desde Compartir {'>'} Agregar a pantalla de inicio.
+            {isSafariBrowser()
+              ? "Instala desde Compartir > Agregar a pantalla de inicio."
+              : "Para instalar en iPhone, abre esta URL en Safari y usa Compartir > Agregar a pantalla de inicio."}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            Safari no muestra el aviso automático de instalación, pero sí puede abrir la app en pantalla completa.
+            {!isSecure
+              ? "Actualmente estas en HTTP. En iPhone la instalacion PWA requiere HTTPS valido."
+              : "iOS no muestra el aviso automatico de instalacion, pero si permite instalar la app manualmente."}
           </p>
           <div className="mt-3 flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => setInstallEvent(null)}
+              onClick={() => setHideIosHint(true)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"
             >
               Entendido

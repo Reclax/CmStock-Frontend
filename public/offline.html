@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1B4965" />
+  <title>CM Stock | Sin conexion</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f7ff;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --brand: #1b4965;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 10%, #dbeafe 0%, transparent 36%),
+        radial-gradient(circle at 90% 90%, #bfdbfe 0%, transparent 30%),
+        var(--bg);
+      padding: 24px;
+    }
+
+    .card {
+      width: min(520px, 100%);
+      background: var(--card);
+      border: 1px solid #dbe4f0;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      line-height: 1.3;
+      color: var(--brand);
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .actions {
+      margin-top: 18px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .ghost {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Estas sin internet</h1>
+    <p>
+      CM Stock no pudo conectarse al servidor. Puedes reintentar ahora o volver cuando tengas conexion.
+    </p>
+    <div class="actions">
+      <button type="button" onclick="location.reload()">Reintentar</button>
+      <button type="button" class="ghost" onclick="history.back()">Volver</button>
+    </div>
+  </main>
+</body>
+</html>

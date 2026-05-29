@@ -58,7 +58,7 @@ const toCollection = (payload) => {
 const KpiCard = ({ value, title, muted = false }) => (
   <article
     className={[
-      "rounded-3xl border p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]",
+      "rounded-3xl border p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0",
       muted
         ? "border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 text-slate-500"
         : "border-slate-200 bg-gradient-to-b from-white to-[#f6fbff]",
@@ -195,10 +195,13 @@ const useElementSize = () => {
       const nextWidth = Math.floor(element.getBoundingClientRect().width);
       const nextHeight = Math.floor(element.getBoundingClientRect().height);
       setSize((current) => {
-        if (current.width === nextWidth && current.height === nextHeight) {
+        if (
+          Math.abs(current.width - nextWidth) <= 1 &&
+          Math.abs(current.height - nextHeight) <= 1
+        ) {
           return current;
         }
-        return { width: nextWidth, height: nextHeight };
+        return { width: Math.max(0, nextWidth), height: Math.max(0, nextHeight) };
       });
     };
 
@@ -218,7 +221,7 @@ const MuestrasBarChart = ({ data, muted = false }) => {
   const { ref, width, height } = useElementSize();
 
   return (
-    <div ref={ref} className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2">
+    <div ref={ref} className="h-44 w-full rounded-2xl border border-slate-200 bg-slate-50 p-2 min-w-0">
       {width > 0 && height > 0 ? (
         <BarChart width={width - 16} height={height - 16} data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
           <XAxis
@@ -286,7 +289,7 @@ const CategoryList = ({ items, muted = false, onSelect, activeKey }) => (
             onClick={onSelect ? () => onSelect(item) : undefined}
             disabled={!onSelect || !item.key}
             className={[
-              "flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-left transition focus:outline-none focus-visible:outline-none",
+              "flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-left transition focus:outline-none focus-visible:outline-none gap-2",
               baseCls,
               onSelect && item.key
                 ? "hover:bg-slate-100 hover:text-[#1B3D8F]"
@@ -294,8 +297,8 @@ const CategoryList = ({ items, muted = false, onSelect, activeKey }) => (
               isActive ? "font-semibold text-[#1B3D8F] bg-slate-100" : "",
             ].join(" ")}
           >
-            <span>{item.label}</span>
-            <strong className={muted ? "text-slate-500" : "text-slate-900"}>{item.value}</strong>
+            <span className="truncate">{item.label}</span>
+            <strong className={[muted ? "text-slate-500" : "text-slate-900", "flex-shrink-0"].join(" ")}>{item.value}</strong>
           </button>
         </li>
       );
@@ -332,8 +335,8 @@ const PresentacionPieChart = ({ data, muted = false }) => {
   };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-      <div ref={ref} className="h-52 w-full outline-none" style={{ outline: "none" }}>
+    <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center min-w-0">
+      <div ref={ref} className="h-52 w-full outline-none min-w-0" style={{ outline: "none" }}>
         {width > 0 && height > 0 ? (
           <PieChart width={width} height={height} tabIndex={-1} style={{ outline: "none" }}>
             <Pie
@@ -357,14 +360,14 @@ const PresentacionPieChart = ({ data, muted = false }) => {
           </PieChart>
         ) : null}
       </div>
-      <ul className="m-0 list-none space-y-2 p-0 text-sm">
+      <ul className="m-0 list-none space-y-2 p-0 text-sm min-w-0">
         {data.map((item, index) => (
-          <li key={item.label} className="flex items-center gap-2">
+          <li key={item.label} className="flex items-center gap-2 min-w-0">
             <span
-              className="inline-block h-3 w-3 rounded-full"
+              className="inline-block h-3 w-3 rounded-full flex-shrink-0"
               style={{ background: palette[index % palette.length] }}
             />
-            <span className={muted ? "text-slate-500" : "text-slate-700"}>
+            <span className={[muted ? "text-slate-500" : "text-slate-700", "truncate"].join(" ")}>
               {item.label}: {item.value}
             </span>
           </li>
@@ -407,7 +410,7 @@ const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
     .parts.join(", ");
 
   return (
-    <div className="grid place-items-center gap-4 sm:grid-cols-[auto_1fr] sm:items-center sm:justify-items-start">
+    <div className="grid place-items-center gap-4 sm:grid-cols-[auto_1fr] sm:items-center sm:justify-items-start min-w-0">
       <div
         className="grid h-44 w-44 place-items-center rounded-full"
         style={{ background: `conic-gradient(${segments})` }}
@@ -418,7 +421,7 @@ const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
         </div>
       </div>
 
-      <ul className="m-0 list-none space-y-2 p-0 text-sm">
+      <ul className="m-0 list-none space-y-2 p-0 text-sm min-w-0">
         {values.map((item, index) => {
           const dotPalette = muted
             ? ["bg-slate-400", "bg-slate-300", "bg-slate-500", "bg-slate-200", "bg-slate-600", "bg-slate-100"]
@@ -426,21 +429,21 @@ const DonutChart = ({ values, muted = false, onSelect, activeKey }) => {
           const isActive = activeKey && item.key === activeKey;
 
           return (
-            <li key={item.label} className="flex items-center gap-2 text-slate-700">
+            <li key={item.label} className="flex items-center gap-2 text-slate-700 min-w-0">
               <button
                 type="button"
                 onClick={onSelect ? () => onSelect(item) : undefined}
                 className={[
-                  "flex items-center gap-2 text-left transition focus:outline-none focus-visible:outline-none",
+                  "flex items-center gap-2 text-left transition focus:outline-none focus-visible:outline-none min-w-0",
                   muted ? "text-slate-500" : "text-slate-700",
                   onSelect ? "hover:text-[#1B3D8F]" : "cursor-default",
                   isActive ? "font-semibold text-[#1B3D8F]" : "",
                 ].join(" ")}
               >
                 <span
-                  className={`h-3 w-3 rounded-full ${dotPalette[index % dotPalette.length]}`}
+                  className={`h-3 w-3 rounded-full flex-shrink-0 ${dotPalette[index % dotPalette.length]}`}
                 />
-                {item.label}: {item.value}
+                <span className="truncate">{item.label}: {item.value}</span>
               </button>
             </li>
           );
@@ -914,7 +917,7 @@ export const DashboardPage = () => {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   {selectedYear ? "Muestras por mes" : "Muestras por año"}
@@ -967,7 +970,7 @@ export const DashboardPage = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   Distribución operativa general
@@ -991,7 +994,7 @@ export const DashboardPage = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   Presentaciones
@@ -1015,7 +1018,7 @@ export const DashboardPage = () => {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   Estados de muestras
@@ -1043,7 +1046,7 @@ export const DashboardPage = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   Top clientes por muestras
@@ -1071,7 +1074,7 @@ export const DashboardPage = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)]">
+            <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(17,36,74,0.08)] min-w-0">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold tracking-[-0.02em] text-slate-900">
                   Top clientes por producción

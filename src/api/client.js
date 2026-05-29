@@ -1,3 +1,5 @@
+import toast from "react-hot-toast";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
@@ -32,10 +34,25 @@ export const request = async (path, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    // Network error (DNS, CORS, offline, tunnel issues)
+    const friendly =
+      err && err.message && /failed to fetch/i.test(err.message)
+        ? "No se pudo conectar con el servidor. Revisa tu conexión a Internet."
+        : "Error de red al contactar el servidor.";
+    try {
+      toast.error(friendly);
+    } catch (e) {
+      // ignore if toast isn't available
+    }
+    throw new ApiError(friendly, 0, { originalMessage: err && err.message });
+  }
 
   const contentType = response.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");

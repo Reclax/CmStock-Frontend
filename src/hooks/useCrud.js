@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { api } from "../api/client";
+import { idbGet, idbSet } from "../offline/db";
 
 const toCollection = (payload) => {
   if (Array.isArray(payload)) {
@@ -70,14 +71,50 @@ export const useCrud = (endpoint) => {
     try {
       const data = await loadAllPages(endpoint);
       setItems(data);
+      // cache for offline
+      try {
+        await idbSet(`cache:${endpoint}`, data);
+      } catch (e) {
+        // ignore idb errors
+      }
       return data;
     } catch (err) {
+      // try offline cache
+      try {
+        const cached = await idbGet(`cache:${endpoint}`);
+        if (cached && Array.isArray(cached)) {
+          setItems(cached);
+          return cached;
+        }
+      } catch (e) {
+        // ignore
+      }
+
       setError(err.message || "Error cargando datos");
       throw err;
     } finally {
       setLoading(false);
     }
   }, [endpoint]);
+
+  const search = useCallback(
+    async (query) => {
+      if (!query) return items;
+      const q = String(query).toLowerCase();
+      // Filter in-memory items first
+      const inMemory = items.filter((it) => JSON.stringify(it).toLowerCase().includes(q));
+      if (inMemory.length > 0) return inMemory;
+
+      // Fallback to cached data in IDB
+      try {
+        const cached = await idbGet(`cache:${endpoint}`) || [];
+        return cached.filter((it) => JSON.stringify(it).toLowerCase().includes(q));
+      } catch (e) {
+        return [];
+      }
+    },
+    [endpoint, items],
+  );
 
   const create = useCallback(
     async (payload) => {
@@ -111,6 +148,7 @@ export const useCrud = (endpoint) => {
     error,
     setItems,
     load,
+    search,
     create,
     update,
     remove,
