@@ -12,7 +12,7 @@ import {
   FiAlertTriangle,
   FiX,
 } from "react-icons/fi";
-
+//añadi la linea  de codigo para probar el pull request
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const extractRef = (filename) => {
   const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
